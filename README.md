@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meet in the Middle
 
-## Getting Started
+Enter up to 6 addresses and find a meeting spot that is central **and fair** for
+everyone — with a live map, per-person travel stats, a fairness score, and
+nearby café/restaurant suggestions.
 
-First, run the development server:
+## How it picks the spot
+
+Three modes, all computed client-side on the sphere (works from city-scale to
+intercontinental):
+
+| Mode | What it does |
+| --- | --- |
+| **Fairest** | Weighted geometric median (Weiszfeld iteration in 3D, re-projected to the sphere). Minimizes total travel — the classic "fair" meeting point. |
+| **Min max trip** | Center of the smallest sphere enclosing everyone (exact brute-force over support subsets, at most 6 points), projected to the surface. Keeps the *longest* single trip as short as possible. |
+| **Average** | Weighted spherical centroid. The center of gravity. |
+
+Each person has a **pull** slider (0.5x – 2x weight). Higher pull moves the spot
+toward that person — for the friend without a car or with a tight schedule.
+
+Distances are straight-line (haversine); drive times are rough estimates
+(route-factor heuristics). The gold meeting marker is **draggable** for
+fine-tuning, and "Cafes & food nearby" lists OSM venues around the spot.
+
+The whole session is shareable: **Share link** encodes people, weights, mode,
+and chosen venue into the URL hash.
+
+## Data sources (all keyless)
+
+- Geocoding: [Photon](https://photon.komoot.io) (OpenStreetMap-based) via
+  `/api/geocode` proxy with a short-lived cache. You can also paste raw
+  `lat, lon` coordinates into an address field.
+- Venues: [Overpass API](https://overpass-api.de) via `/api/venues` with
+  3-mirror fallback and caching.
+- Basemap: Esri World Dark Gray Canvas tiles.
+- Built with Next.js 16, React 19, Leaflet, Tailwind CSS v4, Motion.
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run build && npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Notes & limits
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Straight-line distances, not routing distances (that would need a
+  routing API key).
+- Public Photon/Overpass endpoints are rate-limited and occasionally busy;
+  the venue search retries across mirrors and reports errors honestly.
+- For intercontinental spreads the "min max trip" mode approximates (chord
+  space) and falls back to the centroid when the minimal enclosing sphere is
+  the globe itself.
