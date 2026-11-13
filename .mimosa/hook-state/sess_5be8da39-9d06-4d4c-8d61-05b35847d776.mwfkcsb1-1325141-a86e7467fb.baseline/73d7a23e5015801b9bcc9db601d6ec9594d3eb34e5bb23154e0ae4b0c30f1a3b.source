@@ -411,8 +411,9 @@ export default function Home() {
     <div className="relative flex h-dvh flex-col overflow-hidden">
       <Background />
 
-      {/* Floating glass pill header */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-[max(12px,env(safe-area-inset-top))]">
+      {/* Floating glass pill header (over the map area only, so it never
+          covers the desktop sidebar) */}
+      <div className="pointer-events-none absolute top-0 right-3 left-3 z-20 flex justify-center pt-[max(12px,env(safe-area-inset-top))] lg:left-[416px]">
         <div
           className="mitm-beam mitm-glass pointer-events-auto flex w-full max-w-2xl items-center justify-between gap-2 rounded-full py-2 pl-5 pr-2 shadow-[0_18px_50px_#000000aa]"
           style={{ "--beam-color": "#FFD166" } as React.CSSProperties}

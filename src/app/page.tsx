@@ -10,7 +10,7 @@ import VenueBar, { type VenueState } from "@/components/VenueBar";
 import BottomSheet from "@/components/BottomSheet";
 import Background from "@/components/Background";
 import SplashIntro from "@/components/SplashIntro";
-import { ChevronUpIcon, ShareIcon } from "@/components/icons";
+import { ChevronUpIcon, ShareIcon, SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import {
   computeMeeting,
   estimateTravel,
@@ -18,6 +18,12 @@ import {
   haversineKm,
 } from "@/lib/geo";
 import { fmtKm } from "@/lib/format";
+import {
+  initAudio,
+  loadMuted,
+  persistMuted,
+  playSpotChime,
+} from "@/lib/sound";
 import { PERSON_COLORS, nextFreeColor } from "@/lib/palette";
 import { decodeState, encodeState } from "@/lib/share";
 import {
@@ -61,6 +67,23 @@ export default function Home() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
+
+  // Load the persisted sound preference after hydration (avoids mismatch),
+  // and unlock Web Audio on the first user gesture.
+  useEffect(() => {
+    const t = setTimeout(() => setMuted(loadMuted()), 0);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    const init = () => initAudio();
+    window.addEventListener("pointerdown", init);
+    window.addEventListener("keydown", init);
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, []);
 
   // restore a shared link (deferred so hydration settles first)
   useEffect(() => {
@@ -210,6 +233,28 @@ export default function Home() {
 
   const located = placedPeople.length;
   const needMore = located < 2;
+
+  // Crisp chime when the meeting point appears or settles somewhere new —
+  // debounced so slider drags don't machine-gun it, and only after it has
+  // moved meaningfully (>50m).
+  const lastSoundRef = useRef<LatLng | null>(null);
+  const mutedRef = useRef(false);
+  useEffect(() => {
+    mutedRef.current = muted;
+  }, [muted]);
+  useEffect(() => {
+    if (!meeting) {
+      lastSoundRef.current = null;
+      return;
+    }
+    const t = setTimeout(() => {
+      const prev = lastSoundRef.current;
+      const moved = prev ? haversineKm(prev, meeting) : Infinity;
+      if (moved > 0.05 && !mutedRef.current) playSpotChime();
+      lastSoundRef.current = meeting;
+    }, 350);
+    return () => clearTimeout(t);
+  }, [meeting]);
 
   // When a spot first becomes available (demo loaded, address added), snap the
   // mobile sheet closed so the map reveal is visible. Deferred to a timeout so
@@ -430,6 +475,23 @@ export default function Home() {
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => {
+                const next = !muted;
+                setMuted(next);
+                persistMuted(next);
+              }}
+              aria-label={muted ? "Unmute sounds" : "Mute sounds"}
+              aria-pressed={!muted}
+              title={muted ? "Sound off" : "Sound on"}
+              className="grid h-9 w-9 place-items-center rounded-full border border-[#3A4266] text-[#9AA3C7] transition-colors hover:text-[#E7EAF6]"
+            >
+              {muted ? (
+                <SpeakerOffIcon className="h-4 w-4" />
+              ) : (
+                <SpeakerIcon className="h-4 w-4" />
+              )}
+            </button>
             {needMore && (
               <button
                 onClick={loadDemo}
