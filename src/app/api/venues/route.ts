@@ -208,13 +208,17 @@ async function tryPhoton(
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const lat = Number(url.searchParams.get("lat"));
-  const lon = Number(url.searchParams.get("lon"));
+  const latRaw = url.searchParams.get("lat");
+  const lonRaw = url.searchParams.get("lon");
+  const lat = Number(latRaw);
+  const lon = Number(lonRaw);
   const radius = Math.min(
     5000,
     Math.max(300, Number(url.searchParams.get("radius")) || 1500),
   );
   if (
+    latRaw === null ||
+    lonRaw === null ||
     !Number.isFinite(lat) ||
     !Number.isFinite(lon) ||
     Math.abs(lat) > 90 ||
