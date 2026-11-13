@@ -19,7 +19,7 @@ const UA =
   "meet-in-the-middle/1.0 (https://github.com/jiracipika/meet-in-the-middle; Vercel serverless)";
 const TTL_MS = 15 * 60_000;
 const MAX_ENTRIES = 120;
-const MIRROR_TIMEOUT_MS = 12_000;
+const MIRROR_TIMEOUT_MS = 10_000;
 
 type CacheEntry = { ts: number; body: unknown };
 const cache = new Map<string, CacheEntry>();
@@ -65,9 +65,12 @@ async function tryOverpass(
   radius: number,
   attempts: Array<{ mirror: string; outcome: string }>,
 ): Promise<Venue[] | null> {
-  const query = `[out:json][timeout:25];nwr(around:${radius},${lat},${lon})[amenity~"^(cafe|restaurant|bar|fast_food|food_court|ice_cream)$"];out center tags 80;`;
-  for (const mirror of MIRRORS) {
-    try {
+  const query = `[out:json][timeout:20];nwr(around:${radius},${lat},${lon})[amenity~"^(cafe|restaurant|bar|fast_food|food_court|ice_cream)$"];out center tags 80;`;
+
+  // All mirrors in parallel (they are independent services); first healthy
+  // one in preference order wins. Worst case ~MIRROR_TIMEOUT_MS total.
+  const settled = await Promise.allSettled(
+    MIRRORS.map(async (mirror): Promise<Venue[]> => {
       const res = await fetch(mirror, {
         method: "POST",
         headers: {
@@ -80,8 +83,7 @@ async function tryOverpass(
         cache: "no-store",
       });
       if (!res.ok) {
-        attempts.push({ mirror, outcome: `http_${res.status}` });
-        continue;
+        throw new Error(`http_${res.status}`);
       }
       const json: unknown = await res.json();
       const elements = (json as { elements?: unknown[] }).elements ?? [];
@@ -119,13 +121,15 @@ async function tryOverpass(
         });
       }
       return venues;
-    } catch (e) {
-      attempts.push({
-        mirror,
-        outcome: e instanceof Error ? e.name : "fetch_failed",
-      });
-      // try the next mirror
-    }
+    }),
+  );
+
+  for (let i = 0; i < MIRRORS.length; i++) {
+    const r = settled[i];
+    if (r.status === "fulfilled") return r.value;
+    const reason =
+      r.reason instanceof Error ? r.reason.message : "fetch_failed";
+    attempts.push({ mirror: MIRRORS[i], outcome: reason });
   }
   return null;
 }
@@ -210,7 +214,12 @@ export async function GET(request: Request) {
     5000,
     Math.max(300, Number(url.searchParams.get("radius")) || 1500),
   );
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lon) > 180
+  ) {
     return NextResponse.json({ error: "bad_params" }, { status: 400 });
   }
 
