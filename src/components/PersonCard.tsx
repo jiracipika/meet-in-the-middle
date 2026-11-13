@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
+import { XIcon } from "@/components/icons";
 import type { Person, Place } from "@/lib/types";
 
 const COORD_RE = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
@@ -145,7 +146,7 @@ export default function PersonCard({
           value={person.name}
           maxLength={24}
           onChange={(e) => onChange({ name: e.target.value })}
-          className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[16px] font-bold outline-none sm:text-sm"
           placeholder="Name"
         />
         {canRemove && (
@@ -153,9 +154,9 @@ export default function PersonCard({
             onClick={onRemove}
             aria-label={`Remove ${person.name}`}
             title="Remove"
-            className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[#9AA3C7] transition-colors hover:bg-[#232A44] hover:text-[#FF6B9D]"
+            className="-mr-1.5 -mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#9AA3C7] transition-colors hover:bg-[#232A44] hover:text-[#FF6B9D]"
           >
-            ✕
+            <XIcon className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -168,7 +169,7 @@ export default function PersonCard({
           onFocus={() => setFocused(true)}
           onKeyDown={onKeyDown}
           placeholder={`Address for ${person.name} — or paste "lat, lon"`}
-          className={`w-full rounded-xl border bg-[#0E1120] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[#5A6288] ${
+          className={`w-full rounded-xl border bg-[#0E1120] px-3 py-2 text-[16px] outline-none transition-colors placeholder:text-[#5A6288] sm:text-sm ${
             person.place ? "border-[#2A3150]" : "border-[#3A4266]"
           }`}
           style={person.place ? undefined : { borderColor: person.color }}
@@ -193,7 +194,7 @@ export default function PersonCard({
                   aria-selected={i === active}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => applyPlace(s)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+                  className="flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left text-sm"
                 >
                   <span
                     aria-hidden
@@ -229,6 +230,7 @@ export default function PersonCard({
         <span className="whitespace-nowrap">pull</span>
         <input
           type="range"
+          aria-label={`Pull weight for ${person.name}`}
           min={0.5}
           max={2}
           step={0.05}

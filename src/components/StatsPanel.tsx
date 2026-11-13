@@ -29,19 +29,24 @@ export default function StatsPanel({
   spot,
   overrideActive,
   onReset,
+  scroll = true,
 }: {
   trips: PersonTrip[];
   stats: Stats;
   spot: { lat: number; lon: number; label: string };
   overrideActive: boolean;
   onReset: (() => void) | null;
+  /** enable the internal scroll clamping (desktop overlay); disable inside the sheet */
+  scroll?: boolean;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className="mitm-scroll max-h-[calc(100%-24px)] overflow-y-auto rounded-2xl border border-[#2A3150] bg-[#141826] p-4 shadow-[0_16px_44px_#00000088]"
+      className={`rounded-2xl border border-[#2A3150] bg-[#141826] p-4 shadow-[0_16px_44px_#00000088] ${
+        scroll ? "mitm-scroll max-h-[calc(100%-24px)] overflow-y-auto" : ""
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>

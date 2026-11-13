@@ -16,6 +16,48 @@ body {
   overscroll-behavior: none;
 }
 
+/* ---------- touch ergonomics ---------- */
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="tab"],
+input[type="range"] {
+  touch-action: manipulation;
+}
+
+@media (pointer: coarse) {
+  .mitm-range {
+    height: 6px;
+  }
+
+  .mitm-range::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mitm-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* keep Leaflet's zoom + attribution above the mobile bottom sheet peek */
+@media (max-width: 1023px) {
+  .leaflet-bottom.leaflet-right {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+    right: 10px;
+  }
+}
+
+.mitm-spot-dot {
+  background: #ffd166;
+  box-shadow: 0 0 8px #ffd166;
+}
+
 /* ---------- animated backdrop ---------- */
 
 .mitm-bg {
