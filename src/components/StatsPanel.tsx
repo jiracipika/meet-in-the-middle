@@ -44,16 +44,15 @@ export default function StatsPanel({
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className={`rounded-2xl border border-[#2A3150] bg-[#141826] p-4 shadow-[0_16px_44px_#00000088] ${
+      className={`mitm-beam mitm-glass rounded-2xl p-4 shadow-[0_16px_44px_#00000088] ${
         scroll ? "mitm-scroll max-h-[calc(100%-24px)] overflow-y-auto" : ""
       }`}
+      style={{ "--beam-color": "#FFD166" } as React.CSSProperties}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#FFD166]">
-            The spot
-          </p>
-          <p className="mt-0.5 max-w-[170px] truncate text-sm font-extrabold">
+          <p className="mitm-kicker text-[10px] text-[#FFD166]">The spot</p>
+          <p className="mt-1 max-w-[170px] truncate text-sm font-extrabold">
             {spot.label}
           </p>
         </div>
@@ -85,6 +84,13 @@ export default function StatsPanel({
           role="img"
           aria-label={`Balance score ${stats.fairness} of 100`}
         >
+          <defs>
+            <linearGradient id="mitm-ring-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#FFD166" />
+              <stop offset="55%" stopColor="#FF6B9D" />
+              <stop offset="100%" stopColor="#4CC9F0" />
+            </linearGradient>
+          </defs>
           <circle
             cx="46"
             cy="46"
@@ -98,7 +104,7 @@ export default function StatsPanel({
             cy="46"
             r={RING_R}
             fill="none"
-            stroke="#FFD166"
+            stroke="url(#mitm-ring-grad)"
             strokeWidth="9"
             strokeLinecap="round"
             strokeDasharray={RING_C}
@@ -106,6 +112,7 @@ export default function StatsPanel({
             animate={{ strokeDashoffset: RING_C * (1 - stats.fairness / 100) }}
             transition={{ type: "spring", stiffness: 70, damping: 18 }}
             transform="rotate(-90 46 46)"
+            className="mitm-ring-glow"
           />
           <text
             x="46"
@@ -153,7 +160,7 @@ export default function StatsPanel({
             <span className="w-14 shrink-0 truncate text-xs font-bold">
               {t.name}
             </span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#232A44]">
+            <div className="mitm-bar-shine h-2 flex-1 overflow-hidden rounded-full bg-[#232A44]">
               <motion.div
                 className="h-full rounded-full"
                 style={{ background: t.color }}
@@ -186,10 +193,8 @@ function Metric({
 }) {
   return (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-[#5A6288]">
-        {label}
-      </p>
-      <p className="text-sm font-extrabold tabular-nums">{children}</p>
+      <p className="mitm-kicker text-[9px] text-[#5A6288]">{label}</p>
+      <p className="mt-0.5 text-sm font-extrabold tabular-nums">{children}</p>
     </div>
   );
 }

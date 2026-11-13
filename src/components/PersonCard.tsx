@@ -122,6 +122,13 @@ export default function PersonCard({
 
   const initial = (person.name.trim()[0] ?? "?").toUpperCase();
 
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    el.style.setProperty("--my", `${e.clientY - r.top}px`);
+  }
+
   return (
     <motion.div
       layout
@@ -131,8 +138,11 @@ export default function PersonCard({
       transition={{ type: "spring", stiffness: 320, damping: 28 }}
       onMouseEnter={() => onHover(person.id)}
       onMouseLeave={() => onHover(null)}
-      className="rounded-2xl border border-[#252B44] bg-[#141826] p-3 shadow-[0_10px_30px_#00000055]"
+      onPointerMove={onPointerMove}
+      className="mitm-beam mitm-glass relative rounded-2xl p-3 shadow-[0_10px_30px_#00000055]"
+      style={{ "--beam-color": person.color } as React.CSSProperties}
     >
+      <div aria-hidden className="mitm-spot-glow" />
       <div className="flex items-center gap-2">
         <span
           aria-hidden

@@ -1,6 +1,6 @@
 {
   "schema_version": "mimosa-task-review/v2",
-  "run_id": "20261113T042055661Z-1200856-0ef64f14d485",
+  "run_id": "20261113T215449907Z-1293944-83e64d4d36e7",
   "run_status": "inconclusive",
   "errors": [
     {
@@ -15,31 +15,31 @@
     "scope": "hook_observed_diff",
     "baseline": {
       "complete": false,
-      "captured_files": 17,
+      "captured_files": 1,
       "candidate_limit": 5000,
       "truncated": false,
       "enumeration_error_count": 0,
       "snapshot_error_count": 0,
-      "compensated_target_count": 17
+      "compensated_target_count": 1
     },
     "change_tracking": {
-      "touched_observed": 17,
-      "touched_retained": 17,
+      "touched_observed": 1,
+      "touched_retained": 1,
       "truncated": false,
       "bash_mutation": true,
-      "bash_discovered": 17,
+      "bash_discovered": 1,
       "bash_discovery_limit": 80,
       "bash_discovery_truncated": false
     },
     "candidates": {
-      "eligible_files": 17,
-      "selected_files": 17,
+      "eligible_files": 1,
+      "selected_files": 1,
       "limit": 20,
       "truncated": false
     },
     "scanning": {
-      "required_files": 17,
-      "scanned_files": 17,
+      "required_files": 1,
+      "scanned_files": 1,
       "skipped_files": 0,
       "failed_files": 0,
       "project_checks_required": 0,
@@ -73,237 +73,41 @@
     ],
     "reasons_truncated": false
   },
-  "generated_at": "2026-11-13T04:20:55.661Z",
+  "generated_at": "2026-11-13T21:54:49.907Z",
   "session_id": "sess_5be8da39-9d06-4d4c-8d61-05b35847d776",
   "target": ".",
-  "revision": "095f45b49dabfa4fad04b403969e85d6315a2288",
+  "revision": "88b604bc69f4f7f194ecc85fc4c5594a52a6d802",
   "rules_version": "unavailable",
-  "diff_hash": "ae76f2ee609737dec902a2c78c67bb5f58315664a6b857e0aebf95c85f69a7f5",
+  "diff_hash": "860edb859fdf6b328c1606790184d340a07414bb12b06c46fb4c9fe0c2745d60",
   "diff": {
     "algorithm": "sha256",
-    "changed_file_count": 17,
+    "changed_file_count": 1,
     "changed_files": [
-      {
-        "file": "src/app/api/geocode/route.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 118
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "054b5d30be8cf948d1692dabc2eb04c93c461f2d3b468edb1db27973c24e3698"
-      },
-      {
-        "file": "src/app/api/venues/route.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 255
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "c33a939ea6aba8da24137d98abf529fdfa04abec354ca7099fb767e3888d3bfa"
-      },
-      {
-        "file": "src/app/layout.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 1
-          },
-          {
-            "start": 16,
-            "end": 22
-          },
-          {
-            "start": 31,
-            "end": 31
-          }
-        ],
-        "before_hash": "ac0a51f726d23d255be241c5f37e47119736c2c3cdf5feac57f85de677686ee5",
-        "after_hash": "fee26c24699679106fc0bd70f93f2bec841bf5049176261a9ac266f3550db91e"
-      },
       {
         "file": "src/app/page.tsx",
         "ranges": [
           {
-            "start": 1,
-            "end": 43
+            "start": 214,
+            "end": 215
           },
           {
-            "start": 46,
-            "end": 314
+            "start": 217,
+            "end": 224
           },
           {
-            "start": 316,
-            "end": 323
-          },
-          {
-            "start": 325,
-            "end": 347
-          },
-          {
-            "start": 349,
-            "end": 350
-          },
-          {
-            "start": 352,
-            "end": 449
+            "start": 423,
+            "end": 423
           }
         ],
-        "before_hash": "5a51fdb3f4c514f83e3415b8568d481455656afec2167d61167181c6483c62ff",
-        "after_hash": "40a7af14cf4f4c4d21148bf32c2b3d1fb8ab95393b701e6bd557c7e9bc0a7a10"
-      },
-      {
-        "file": "src/components/AnimatedNumber.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 22
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "01530fac0c9c81447bcdcb7f3ab6d03dd73d85370be1c137359e5272aa5b5b6f"
-      },
-      {
-        "file": "src/components/Background.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 11
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "6c7794bc23ff4da8187c47732c7b24facd1a4f8d78273f6b3d203a2726ab3d7e"
-      },
-      {
-        "file": "src/components/Map.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 17
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "74758d1ad5fbc5e07df35bec530ac6f8995cd4118672ed326f74f15c7ab75c73"
-      },
-      {
-        "file": "src/components/MapView.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 207
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "af447e730e4822c9cc61c5ae4434ff0737fc484ff73904bc44941dd9da8b7fa3"
-      },
-      {
-        "file": "src/components/ModeToggle.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 47
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "8c743fcea759976eb1772b585af00cb0eb23a61bff25c8988fd241b71545c5e1"
-      },
-      {
-        "file": "src/components/PersonCard.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 247
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "5758d8f134e93f5967ca701ffbe1094554e0689193692f5b7e84b4f6391bef22"
-      },
-      {
-        "file": "src/components/StatsPanel.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 190
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "44340517656f310602b1396cf899f4de64f94f99ddf8c9bddd7aec487f78343d"
-      },
-      {
-        "file": "src/components/VenueBar.tsx",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 129
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "3cf5191416421ba565994b65a3ea030b5c4f283fc281cfc42b30fe6a91496555"
-      },
-      {
-        "file": "src/lib/format.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 11
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "4f37284e7785cb0d87e8cdd16ab175c67d844d3781bb9ecb17b9f3c1f66dad82"
-      },
-      {
-        "file": "src/lib/geo.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 260
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "df09acab4e2dd5c9354400665bff7b5188e2b485a8866f46332dbca476cf1a0f"
-      },
-      {
-        "file": "src/lib/palette.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 20
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "8d262d856a72500252990c6f7dafffd85fafcf2cdb6f26b9aa1da7c3a789ffb3"
-      },
-      {
-        "file": "src/lib/share.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 24
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "83ad9a2bfd2be41aeccaebc972498effc818be41b46f5ff71f4f49f7caff12d5"
-      },
-      {
-        "file": "src/lib/types.ts",
-        "ranges": [
-          {
-            "start": 1,
-            "end": 71
-          }
-        ],
-        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "after_hash": "dff78fbbeb24fdb284a67c0a52fa9dcc61498dec757165eca3aac9829902d2cd"
+        "before_hash": "9fc3f658ee197acdd5de9776eb44e009e3c04fa1b3e21bf1aedc074bd3c560ac",
+        "after_hash": "8889c3a5e89b825afe4a031156e0bc2c5007341d0da0d26dbeddefda9d4ce86f"
       }
     ]
   },
   "timing": {
-    "started_at": "2026-11-13T04:20:54.561Z",
-    "completed_at": "2026-11-13T04:20:55.661Z",
-    "duration_ms": 1100,
+    "started_at": "2026-11-13T21:54:47.947Z",
+    "completed_at": "2026-11-13T21:54:49.907Z",
+    "duration_ms": 1960,
     "measurement": "hook_wall_clock"
   },
   "tokens": {
@@ -318,10 +122,10 @@
     "profile": "gate",
     "operation": "Stop",
     "outcome": "partial/INCONCLUSIVE",
-    "latencyMs": 1100,
-    "peakMemoryBytes": 190758912,
+    "latencyMs": 1960,
+    "peakMemoryBytes": 177840128,
     "memoryMeasurement": "max-observed-process-rss",
-    "scannedFiles": 17,
+    "scannedFiles": 1,
     "cache": {
       "hits": 0,
       "misses": 0,
@@ -346,8 +150,8 @@
   "finding_events": [],
   "findings": [],
   "artifacts": {
-    "immutable_report": ".mimosa/reports/task-review-sess_5be8da39-9d06-4d4c-8d61-05b35847d776-20261113T042055661Z-1200856-0ef64f14d485.json",
+    "immutable_report": ".mimosa/reports/task-review-sess_5be8da39-9d06-4d4c-8d61-05b35847d776-20261113T215449907Z-1293944-83e64d4d36e7.json",
     "latest_report": ".mimosa/reports/task-review-sess_5be8da39-9d06-4d4c-8d61-05b35847d776.json",
-    "history_summary": ".mimosa/history/run-20261113T042055661Z-1200856-0ef64f14d485.json"
+    "history_summary": ".mimosa/history/run-20261113T215449907Z-1293944-83e64d4d36e7.json"
   }
 }

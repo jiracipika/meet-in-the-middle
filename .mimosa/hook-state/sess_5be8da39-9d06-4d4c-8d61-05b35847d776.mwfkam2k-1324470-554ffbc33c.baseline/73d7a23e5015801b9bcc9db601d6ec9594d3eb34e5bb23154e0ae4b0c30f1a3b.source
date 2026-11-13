@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import Map from "@/components/Map";
 import PersonCard from "@/components/PersonCard";
 import ModeToggle from "@/components/ModeToggle";
@@ -9,6 +9,7 @@ import StatsPanel, { type PersonTrip, type Stats } from "@/components/StatsPanel
 import VenueBar, { type VenueState } from "@/components/VenueBar";
 import BottomSheet from "@/components/BottomSheet";
 import Background from "@/components/Background";
+import SplashIntro from "@/components/SplashIntro";
 import { ChevronUpIcon, ShareIcon } from "@/components/icons";
 import {
   computeMeeting,
@@ -211,12 +212,17 @@ export default function Home() {
   const needMore = located < 2;
 
   // When a spot first becomes available (demo loaded, address added), snap the
-  // mobile sheet closed so the map reveal is visible. Render-time adjustment.
+  // mobile sheet closed so the map reveal is visible. Deferred to a timeout so
+  // it reads as an external-state callback, not a render-phase update.
   const prevLocatedRef = useRef(0);
-  if (located >= 2 && located > prevLocatedRef.current && sheetOpen) {
-    setSheetOpen(false);
-  }
-  prevLocatedRef.current = located;
+  useEffect(() => {
+    const grew = located >= 2 && located > prevLocatedRef.current;
+    prevLocatedRef.current = located;
+    if (grew && sheetOpen) {
+      const t = setTimeout(() => setSheetOpen(false), 0);
+      return () => clearTimeout(t);
+    }
+  }, [located, sheetOpen]);
 
   /* ---------- actions ---------- */
 
@@ -405,48 +411,43 @@ export default function Home() {
     <div className="relative flex h-dvh flex-col overflow-hidden">
       <Background />
 
-      <header
-        className="relative z-20 flex items-center justify-between gap-2 border-b border-[#1E2338] bg-[#0E1120] px-3 sm:gap-3 md:px-6"
-        style={{
-          paddingTop: "max(10px, env(safe-area-inset-top))",
-          paddingBottom: "max(10px, env(safe-area-inset-bottom))",
-        }}
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            aria-hidden
-            className="mitm-gradient-text text-lg font-black tracking-tight sm:text-xl md:text-2xl"
-          >
-            MEET IN THE MIDDLE
-          </span>
-          <span className="hidden truncate text-xs text-[#9AA3C7] md:block">
-            the fairest spot for everyone
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <AnimatePresence>
+      {/* Floating glass pill header */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center px-3 pt-[max(12px,env(safe-area-inset-top))]">
+        <div
+          className="mitm-beam mitm-glass pointer-events-auto flex w-full max-w-2xl items-center justify-between gap-2 rounded-full py-2 pl-5 pr-2 shadow-[0_18px_50px_#000000aa]"
+          style={{ "--beam-color": "#FFD166" } as React.CSSProperties}
+        >
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span
+              aria-hidden
+              className="mitm-gradient-text whitespace-nowrap text-base font-black tracking-tight sm:text-lg"
+            >
+              MEET IN THE MIDDLE
+            </span>
+            <span className="mitm-kicker hidden text-[9px] text-[#9AA3C7] md:block">
+              six friends · one fair spot
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             {needMore && (
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+              <button
                 onClick={loadDemo}
-                className="min-h-[38px] rounded-full border border-[#3A4266] px-3 text-xs font-bold text-[#B9C3EA] transition-colors hover:border-[#4CC9F0] hover:text-[#4CC9F0]"
+                className="min-h-[36px] rounded-full border border-[#3A4266] px-3 text-xs font-bold text-[#B9C3EA] transition-colors hover:border-[#4CC9F0] hover:text-[#4CC9F0]"
               >
-                Try Berlin demo
-              </motion.button>
+                Demo
+              </button>
             )}
-          </AnimatePresence>
-          <button
-            onClick={share}
-            aria-label="Share link"
-            className="flex min-h-[38px] items-center gap-1.5 rounded-full bg-[#FFD166] px-3.5 text-xs font-extrabold text-[#0B0D17] transition-all hover:brightness-110 active:scale-95"
-          >
-            <ShareIcon className="h-4 w-4" aria-hidden />
-            <span>{copied ? "Copied ✓" : "Share"}</span>
-          </button>
+            <button
+              onClick={share}
+              aria-label="Share link"
+              className="flex min-h-[36px] items-center gap-1.5 rounded-full bg-[#FFD166] px-3.5 text-xs font-extrabold text-[#0B0D17] transition-all hover:brightness-110 active:scale-95"
+            >
+              <ShareIcon className="h-4 w-4" aria-hidden />
+              <span>{copied ? "Copied ✓" : "Share"}</span>
+            </button>
+          </div>
         </div>
-      </header>
+      </div>
 
       <main className="relative z-10 flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Desktop sidebar */}
@@ -465,10 +466,10 @@ export default function Home() {
           />
 
           {/* Desktop overlays */}
-          <div className="absolute left-3 top-3 z-[1000] hidden lg:block">
+          <div className="absolute left-3 top-[calc(76px+env(safe-area-inset-top,0px))] z-[1000] hidden lg:block">
             <ModeToggle mode={mode} onChange={setMode} />
           </div>
-          <div className="absolute right-3 top-3 z-[1000] hidden lg:flex">
+          <div className="absolute right-3 top-[calc(76px+env(safe-area-inset-top,0px))] z-[1000] hidden lg:flex">
             <VenueBar
               state={venueInfo.state}
               venues={venueInfo.venues}
@@ -487,8 +488,8 @@ export default function Home() {
             />
           </div>
 
-          {/* Mobile overlays (stacked under the mode pills) */}
-          <div className="absolute left-3 top-3 z-[1000] flex flex-col items-start gap-2 lg:hidden">
+          {/* Mobile overlays (stacked under the floating header) */}
+          <div className="absolute left-3 top-[calc(76px+env(safe-area-inset-top,0px))] z-[1000] flex flex-col items-start gap-2 lg:hidden">
             <ModeToggle mode={mode} onChange={setMode} />
             <VenueBar
               align="left"
@@ -525,8 +526,14 @@ export default function Home() {
 
           {needMore && (
             <div className="pointer-events-none absolute inset-0 z-[900] grid place-items-center p-4 pb-28 lg:pb-4">
-              <div className="pointer-events-auto max-w-xs rounded-2xl border border-[#2A3150] bg-[#141826] px-6 py-5 text-center shadow-[0_20px_60px_#000000aa]">
-                <p className="text-base font-extrabold">
+              <div
+                className="mitm-beam mitm-glass pointer-events-auto max-w-xs rounded-2xl px-6 py-5 text-center shadow-[0_20px_60px_#000000aa]"
+                style={{ "--beam-color": "#4CC9F0" } as React.CSSProperties}
+              >
+                <p className="mitm-kicker text-[9px] text-[#4CC9F0]">
+                  get started
+                </p>
+                <p className="mitm-gradient-text mt-2 text-lg font-black leading-snug">
                   Find your fairest meeting spot
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-[#9AA3C7]">
@@ -572,6 +579,8 @@ export default function Home() {
           {addAndHint("sheet")}
         </div>
       </BottomSheet>
+
+      <SplashIntro />
     </div>
   );
 }

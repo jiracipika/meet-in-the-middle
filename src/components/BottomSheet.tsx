@@ -106,7 +106,7 @@ export default function BottomSheet({
         }}
         onDragEnd={handleDragEnd}
         style={{ y }}
-        className="pointer-events-auto flex h-full flex-col overflow-hidden rounded-t-2xl border border-[#2A3150] bg-[#0E1120] shadow-[0_-16px_44px_#000000aa]"
+        className="pointer-events-auto flex h-full flex-col overflow-hidden rounded-t-2xl border border-[#2A3150] bg-[#0A0D1A] shadow-[0_-16px_44px_#000000aa]"
       >
         <button
           type="button"

@@ -54,7 +54,7 @@ function personIcon(color: string, initial: string, active: boolean) {
 function spotIcon() {
   return L.divIcon({
     className: "mitm-marker",
-    html: `<span class="mitm-spot"><i class="mitm-spot-pulse"></i><b class="mitm-spot-core"></b></span>`,
+    html: `<span class="mitm-spot"><i class="mitm-spot-pulse"></i><i class="mitm-spot-ring"></i><b class="mitm-spot-core"></b></span>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
@@ -148,6 +148,7 @@ export default function MapView({
               color: p.color,
               weight: highlightedId === p.id ? 4 : 2.5,
               opacity: highlightedId === p.id ? 0.95 : 0.6,
+              className: "mitm-route",
             }}
           />
         ))}
