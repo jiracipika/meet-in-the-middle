@@ -1,37 +1,14 @@
 {
   "schemaVersion": "mimosa-hook-status/v1",
-  "recordedAt": "2026-11-13T04:07:19.127Z",
+  "recordedAt": "2026-11-13T04:11:50.423Z",
   "sessionId": "sess_5be8da39-9d06-4d4c-8d61-05b35847d776",
-  "event": "PreToolUse",
-  "toolName": "Write",
-  "file": "README.md",
+  "event": "PostToolUse",
+  "toolName": "Edit",
+  "file": "src/app/api/venues/route.ts",
   "outcome": "clear",
   "coverage": "complete",
   "findingCount": 0,
-  "durationMs": 2,
-  "telemetry": {
-    "schemaVersion": "mimosa-gate-telemetry/v1",
-    "profile": "gate",
-    "operation": "PreToolUse",
-    "outcome": "complete",
-    "latencyMs": 2,
-    "peakMemoryBytes": 113500160,
-    "memoryMeasurement": "max-observed-process-rss",
-    "scannedFiles": 1,
-    "cache": {
-      "hits": 0,
-      "misses": 1,
-      "measurement": "not-applicable"
-    },
-    "denyCount": 0,
-    "tokens": {
-      "input": 0,
-      "output": 0,
-      "total": 0,
-      "modelCalls": 0,
-      "measurement": "known-zero"
-    }
-  },
-  "hostState": "hook_complete_waiting_host_tool_decision",
+  "durationMs": 4,
+  "hostState": "hook_complete",
   "reportHint": ".mimosa/reports/"
 }

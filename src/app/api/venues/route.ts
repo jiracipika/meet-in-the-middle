@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 
 /**
  * Venue lookup around a point via Overpass (OpenStreetMap). The public
- * Overpass instances are busy, so we try mirrors in order.
+ * Overpass instances are busy, so we try mirrors in order with short
+ * per-mirror timeouts.
  */
+
+export const maxDuration = 30;
 
 const MIRRORS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.osm.jp/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
 ];
 
@@ -15,6 +20,7 @@ const UA =
   "meet-in-the-middle/1.0 (https://github.com/jiracipika/meet-in-the-middle; Vercel serverless)";
 const TTL_MS = 15 * 60_000;
 const MAX_ENTRIES = 120;
+const MIRROR_TIMEOUT_MS = 9_000;
 
 type CacheEntry = { ts: number; body: unknown };
 const cache = new Map<string, CacheEntry>();
@@ -66,6 +72,7 @@ export async function GET(request: Request) {
 
   const query = `[out:json][timeout:25];nwr(around:${radius},${lat},${lon})[amenity~"^(cafe|restaurant|bar|fast_food|food_court|ice_cream)$"];out center tags 80;`;
 
+  const attempts: Array<{ mirror: string; outcome: string }> = [];
   let lastError = "overpass_unavailable";
   for (const mirror of MIRRORS) {
     try {
@@ -77,11 +84,12 @@ export async function GET(request: Request) {
           Accept: "application/json",
         },
         body: new URLSearchParams({ data: query }).toString(),
-        signal: AbortSignal.timeout(22_000),
+        signal: AbortSignal.timeout(MIRROR_TIMEOUT_MS),
         cache: "no-store",
       });
       if (!res.ok) {
         lastError = `overpass_${res.status}`;
+        attempts.push({ mirror, outcome: `http_${res.status}` });
         continue;
       }
       const json: unknown = await res.json();
@@ -127,9 +135,13 @@ export async function GET(request: Request) {
       }
       cache.set(key, { ts: Date.now(), body });
       return NextResponse.json(body);
-    } catch {
+    } catch (e) {
+      attempts.push({
+        mirror,
+        outcome: e instanceof Error ? e.name : "fetch_failed",
+      });
       // try the next mirror
     }
   }
-  return NextResponse.json({ error: lastError }, { status: 502 });
+  return NextResponse.json({ error: lastError, attempts }, { status: 502 });
 }
