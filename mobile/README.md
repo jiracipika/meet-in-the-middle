@@ -52,14 +52,12 @@ the same code uses the standard browser APIs.
 - Icons/splash: generated from `assets/icon.png` + `assets/splash.png` with
   `npx @capacitor/assets generate --assetPath assets`
 
-## Store submission (outline)
+## Store submission
 
-1. iOS: Apple Developer Program ($99/yr) → in Xcode set a team, archive,
-   upload via App Store Connect, fill the listing. Location usage string is
-   already in `ios/App/App/Info.plist`.
-2. Android: Google Play developer account ($25 once) →
-   `cd android && ./gradlew bundleRelease` (or Android Studio → Generate
-   Signed Bundle), upload to Play Console.
-3. Version bumps: `versionCode`/`versionName` in
-   `android/app/build.gradle`, and `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`
-   in `ios/App/App.xcodeproj`.
+CI/CD is set up via **Codemagic** (same account as repfindercanada):
+`codemagic.yaml` at the repo root defines two workflows — `release-both`
+(signed builds → TestFlight + Play internal) and `build-artifacts-only`
+(unsigned pipeline check, no credentials). See
+[`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md) for one-time setup and the
+per-release routine. Manual building via Xcode/Android Studio also still
+works as described above.

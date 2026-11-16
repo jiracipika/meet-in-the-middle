@@ -1,0 +1,176 @@
+# Codemagic CI/CD for the Meet in the Middle apps.
+#
+# Adapted from the proven repfindercanada-mobile setup (same Codemagic
+# account/environment groups). Differences from that project:
+#   - the web app is Next.js: the static export for the WebView bundle is
+#     produced by mobile/scripts/export-web.mjs (which also runs `next build`
+#     with MOBILE=1 and restores the API routes afterwards)
+#   - the iOS project uses Swift Packages (CapApp-SPM), not CocoaPods:
+#     no `pod install`, and build with --project, not --workspace
+#
+# Workflows are started manually from the Codemagic UI (no auto-trigger on
+# push, so store uploads never happen by accident).
+#
+# Required Codemagic environment groups (same names as repfindercanada):
+#   app_store_connect: APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER,
+#                      APP_STORE_CONNECT_PRIVATE_KEY, DIST_CERT_PRIVATE_KEY
+#   google_play:       GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+# Android signing: keystore uploaded to Codemagic as "akey" (CM_KEYSTORE* / CM_KEY_*).
+
+workflows:
+  release-both:
+    name: "iOS TestFlight + Play internal"
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - app_store_connect
+        - google_play
+      vars:
+        XCODE_PROJECT: "mobile/ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.jiracipika.meetinthemiddle"
+        PACKAGE_NAME: "com.jiracipika.meetinthemiddle"
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+      node: 22
+      xcode: latest
+      android_signing:
+        - akey
+    scripts:
+      - name: Set up iOS code signing
+        script: |
+          # Same custom flow as repfindercanada: mint a fresh app_store profile
+          # for this bundle id via the App Store Connect API and bind it to the
+          # distribution cert. = form is required for --private-key (the PEM
+          # value starts with dashes). DIST_CERT_PRIVATE_KEY is base64 of the
+          # team's distribution-cert key (app_store_connect group).
+          set -e
+          export DIST_CERT_KEY="$(echo "$DIST_CERT_PRIVATE_KEY" | base64 --decode | awk '/BEGIN/{f=1} f{print}')"
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --issuer-id="$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id="$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key="$APP_STORE_CONNECT_PRIVATE_KEY" \
+            --certificate-key="$DIST_CERT_KEY" \
+            --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Check web app (lint + unit tests)
+        script: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npm test
+      - name: Install Android SDK 36
+        script: |
+          # sdkmanager is not on PATH on some mac_mini_m2 images.
+          SDKMGR=$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")
+          echo "Using sdkmanager: $SDKMGR"
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+          "$SDKMGR" "platforms;android-36"
+      - name: Export web bundle + sync Capacitor (iOS & Android)
+        script: |
+          set -euo pipefail
+          cd mobile
+          npm ci
+          npm run sync
+      - name: Build signed Android .aab and .apk
+        script: |
+          set -euo pipefail
+          cd mobile/android
+          # Probe for a JDK that can read the keystore (newer keytool formats
+          # break zulu-17 — lesson from repfindercanada).
+          GRADLE_JAVA_HOME=""
+          for V in 21 26 17; do
+            J="/Library/Java/JavaVirtualMachines/zulu-$V.jdk/Contents/Home"
+            if [ -x "$J/bin/keytool" ]; then
+              if "$J/bin/keytool" -list -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+                echo "== zulu-$V can read the keystore; building with zulu-$V =="
+                GRADLE_JAVA_HOME="$J"
+                break
+              else
+                echo "== zulu-$V CANNOT read the keystore =="
+              fi
+            fi
+          done
+          if [ -z "$GRADLE_JAVA_HOME" ]; then
+            echo "NO JDK on the image can read the keystore"
+            exit 1
+          fi
+          ./gradlew -Dorg.gradle.java.home="$GRADLE_JAVA_HOME" assembleRelease bundleRelease \
+            -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
+      - name: Build iOS .ipa
+        script: |
+          # SPM project (no CocoaPods, no workspace): build with --project.
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
+      - name: Publish AAB to Play internal testing
+        script: |
+          # Upload once to the internal track. Promoting to other tracks must
+          # use `google-play tracks promote-release` (re-uploading the same
+          # versionCode is rejected by Play) — add that when needed.
+          set -euo pipefail
+          AAB="mobile/android/app/build/outputs/bundle/release/app-release.aab"
+          google-play bundles publish \
+            --credentials "@env:GCLOUD_SERVICE_ACCOUNT_CREDENTIALS" \
+            --bundle "$AAB" \
+            --track internal
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - mobile/android/app/build/outputs/**/*.aab
+      - mobile/android/app/build/outputs/**/*.apk
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - rajingajadhar@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  build-artifacts-only:
+    name: "Unsigned smoke build (no stores)"
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        XCODE_PROJECT: "mobile/ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Check web app (lint + unit tests)
+        script: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npm test
+      - name: Export web bundle + sync Capacitor
+        script: |
+          set -euo pipefail
+          cd mobile
+          npm ci
+          npm run sync
+      - name: Build Android debug .apk (unsigned pipeline check)
+        script: |
+          cd mobile/android && ./gradlew assembleDebug
+      - name: Build iOS for simulator (unsigned pipeline check)
+        script: |
+          cd mobile/ios/App
+          xcodebuild -project App.xcodeproj -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+    artifacts:
+      - mobile/android/app/build/outputs/**/*.apk
+      - mobile/ios/App/build/Build/Products/*-iphonesimulator/*.app
