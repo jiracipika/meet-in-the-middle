@@ -59,6 +59,10 @@ export async function GET(request: Request) {
   const q = (url.searchParams.get("q") ?? "").trim();
   const lat = url.searchParams.get("lat");
   const lon = url.searchParams.get("lon");
+  if (q.length > 240 || ((lat !== null || lon !== null) && (
+    !lat?.trim() || !lon?.trim() || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon)) ||
+    Math.abs(Number(lat)) > 90 || Math.abs(Number(lon)) > 180
+  ))) return NextResponse.json({ error: "bad_params" }, { status: 400 });
   if (q.length < 3) {
     return NextResponse.json({ results: [] });
   }
@@ -99,7 +103,7 @@ export async function GET(request: Request) {
         const coords = feature.geometry?.coordinates;
         if (!coords || coords.length < 2) return null;
         const [flon, flat] = coords;
-        if (!Number.isFinite(flat) || !Number.isFinite(flon)) return null;
+        if (!Number.isFinite(flat) || !Number.isFinite(flon) || Math.abs(flat) > 90 || Math.abs(flon) > 180) return null;
         return {
           label: buildLabel(feature.properties ?? {}),
           lat: flat,

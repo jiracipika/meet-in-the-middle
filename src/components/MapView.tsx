@@ -13,7 +13,6 @@ import {
   ZoomControl,
   useMap,
 } from "react-leaflet";
-import { meetingZoom } from "@/lib/geo";
 import { GOLD } from "@/lib/palette";
 
 export type MapPerson = {
@@ -37,6 +36,7 @@ export type MapViewProps = {
   spot: SpotDisplay | null;
   highlightedId: string | null;
   maxDistKm: number;
+  fitVersion: number;
   onSpotDrag: (lat: number, lon: number) => void;
 };
 
@@ -44,8 +44,8 @@ function personIcon(color: string, initial: string, active: boolean) {
   return L.divIcon({
     className: "mitm-marker",
     html: `<span class="mitm-pin" style="background:${color};${
-      active ? `box-shadow:0 0 0 4px ${color},0 6px 16px #000;` : "box-shadow:0 6px 16px #000;"
-    }">${initial}</span>`,
+      active ? `box-shadow:0 0 0 5px ${color}66;` : ""
+    }">${initial.replace(/[&<>"']/g, "")}</span>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
   });
@@ -60,48 +60,33 @@ function spotIcon() {
   });
 }
 
-/** Flies to the spot when it moves; refits bounds when people come and go. */
-function Controller({
-  spot,
-  people,
-  maxDistKm,
-}: {
-  spot: SpotDisplay | null;
-  people: MapPerson[];
-  maxDistKm: number;
-}) {
+/** Fit all starting points, including after a phone tab or viewport resize. */
+function Controller({ spot, people, fitVersion }: { spot: SpotDisplay | null; people: MapPerson[]; fitVersion: number }) {
   const map = useMap();
-  const prevCount = useRef(-1);
-  const prevSpotKey = useRef("");
-
+  const current = useRef({ spot, people });
+  useEffect(() => { current.current = { spot, people }; }, [spot, people]);
+  const positions = people.map(p => `${p.lat},${p.lon}`).join(";");
   useEffect(() => {
-    const count = people.length;
-    const spotKey = spot ? `${spot.lat.toFixed(5)},${spot.lon.toFixed(5)}` : "";
-    const countChanged = prevCount.current !== count;
-    const spotChanged = prevSpotKey.current !== spotKey;
-    prevCount.current = count;
-    prevSpotKey.current = spotKey;
-
-    if (people.length === 0) return;
-    if (countChanged) {
-      if (people.length === 1) {
-        map.flyTo([people[0].lat, people[0].lon], 13, { duration: 0.9 });
-        return;
-      }
-      const bounds = L.latLngBounds(
-        people.map((p) => [p.lat, p.lon] as [number, number]),
-      );
-      if (spot) bounds.extend([spot.lat, spot.lon]);
-      map.flyToBounds(bounds.pad(0.25), { duration: 0.9 });
-    } else if (spotChanged && spot) {
-      map.flyTo(
-        [spot.lat, spot.lon],
-        Math.max(map.getZoom(), meetingZoom(maxDistKm)),
-        { duration: 1.1 },
-      );
-    }
-  }, [spot, people, map, maxDistKm]);
-
+    const fit = () => {
+      if (!map.getContainer().clientWidth) return;
+      map.invalidateSize();
+      const { people: ps, spot: target } = current.current;
+      if (!ps.length) return;
+      if (ps.length === 1) { map.setView([ps[0].lat, ps[0].lon], 13); return; }
+      const anchor = target?.lon ?? ps[0].lon;
+      const wrap = (lon: number) => anchor + ((lon - anchor + 540) % 360) - 180;
+      const bounds = L.latLngBounds(ps.map(p => [p.lat, wrap(p.lon)] as [number, number]));
+      if (target) bounds.extend([target.lat, wrap(target.lon)]);
+      const size = map.getSize();
+      const desktop = window.innerWidth > 760;
+      const roomForResults = desktop && size.x > 650;
+      map.fitBounds(bounds, { paddingTopLeft: [45, 105], paddingBottomRight: [roomForResults ? 365 : 45, desktop && !roomForResults ? Math.min(size.y * .5, 360) : 75], maxZoom: 15, animate: false });
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map, positions, fitVersion]);
   return null;
 }
 
@@ -109,45 +94,47 @@ export default function MapView({
   people,
   spot,
   highlightedId,
-  maxDistKm,
+  fitVersion,
   onSpotDrag,
-}: MapViewProps) {
+ }: MapViewProps) {
+  const anchor = spot?.lon ?? people[0]?.lon ?? 0;
+  const longitude = (lon: number) => anchor + ((lon - anchor + 540) % 360) - 180;
   return (
     <MapContainer
       center={[30, 12]}
       zoom={2}
       minZoom={2}
-      maxZoom={16}
+      maxZoom={18}
       zoomControl={false}
       worldCopyJump
       className="z-0 h-full w-full"
-      style={{ background: "#262626" }}
+      style={{ background: "#e9ede4" }}
     >
       <TileLayer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-        maxZoom={16}
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+        maxZoom={18} maxNativeZoom={16}
         attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
       />
       <TileLayer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-        maxZoom={16}
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+        maxZoom={18} maxNativeZoom={16}
         attribution=""
       />
       <ZoomControl position="bottomright" />
-      <Controller spot={spot} people={people} maxDistKm={maxDistKm} />
+      <Controller spot={spot} people={people} fitVersion={fitVersion} />
 
       {spot &&
         people.map((p) => (
           <Polyline
             key={`line-${p.id}`}
             positions={[
-              [p.lat, p.lon],
-              [spot.lat, spot.lon],
+              [p.lat, longitude(p.lon)],
+              [spot.lat, longitude(spot.lon)],
             ]}
             pathOptions={{
               color: p.color,
               weight: highlightedId === p.id ? 4 : 2.5,
-              opacity: highlightedId === p.id ? 0.95 : 0.6,
+              opacity: highlightedId === p.id ? 1 : 0.85,
               className: "mitm-route",
             }}
           />
@@ -156,7 +143,9 @@ export default function MapView({
       {people.map((p) => (
         <Marker
           key={p.id}
-          position={[p.lat, p.lon]}
+          title={p.name || "Friend"}
+          alt={`${p.name || "Friend"} starting point`}
+          position={[p.lat, longitude(p.lon)]}
           icon={personIcon(
             p.color,
             (p.name.trim()[0] ?? "?").toUpperCase(),
@@ -173,13 +162,15 @@ export default function MapView({
 
       {spot && (
         <Marker
-          position={[spot.lat, spot.lon]}
+          title="Drag meeting point"
+          alt="Meeting point"
+          position={[spot.lat, longitude(spot.lon)]}
           icon={spotIcon()}
           draggable
           eventHandlers={{
             dragend: (e) => {
               const ll = (e.target as L.Marker).getLatLng();
-              onSpotDrag(ll.lat, ll.lng);
+              onSpotDrag(Math.max(-90, Math.min(90, ll.lat)), ((ll.lng + 180) % 360 + 360) % 360 - 180);
             },
           }}
         >

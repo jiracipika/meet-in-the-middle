@@ -217,8 +217,8 @@ export async function GET(request: Request) {
     Math.max(300, Number(url.searchParams.get("radius")) || 1500),
   );
   if (
-    latRaw === null ||
-    lonRaw === null ||
+    !latRaw?.trim() ||
+    !lonRaw?.trim() ||
     !Number.isFinite(lat) ||
     !Number.isFinite(lon) ||
     Math.abs(lat) > 90 ||
@@ -227,7 +227,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "bad_params" }, { status: 400 });
   }
 
-  const key = `${lat.toFixed(2)},${lon.toFixed(2)},${radius}`;
+  const key = `${lat.toFixed(5)},${lon.toFixed(5)},${radius}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < TTL_MS) {
     return NextResponse.json(hit.body);

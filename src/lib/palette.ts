@@ -1,15 +1,15 @@
 /** Vivid, mutually distinguishable colors on the dark map. */
 export const PERSON_COLORS = [
-  "#FF6B9D",
-  "#FFB454",
-  "#4ADE80",
-  "#4CC9F0",
-  "#B388FF",
-  "#F9F871",
+  "#E5AD91",
+  "#B9C9EB",
+  "#B4CC9B",
+  "#D4B8D9",
+  "#F0CF81",
+  "#91CBC3",
 ] as const;
 
 /** The meeting-spot gold. */
-export const GOLD = "#FFD166";
+export const GOLD = "#245B45";
 
 export function nextFreeColor(taken: string[]): string {
   return PERSON_COLORS.find((c) => !taken.includes(c)) ?? PERSON_COLORS[0];
