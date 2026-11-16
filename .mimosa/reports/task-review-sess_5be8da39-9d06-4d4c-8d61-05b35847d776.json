@@ -1,45 +1,39 @@
 {
   "schema_version": "mimosa-task-review/v2",
-  "run_id": "20261113T224343744Z-1325086-ad94c708caf5",
-  "run_status": "inconclusive",
-  "errors": [
-    {
-      "stage": "baseline",
-      "target": ".",
-      "reason": "baseline_partial: baseline capture had enumeration or snapshot errors"
-    }
-  ],
+  "run_id": "20261113T224715186Z-1326387-efe8c53138c0",
+  "run_status": "completed",
+  "errors": [],
   "coverage": {
     "schema_version": "mimosa-hook-coverage/v1",
-    "status": "partial",
+    "status": "complete",
     "scope": "hook_observed_diff",
     "baseline": {
-      "complete": false,
-      "captured_files": 1,
+      "complete": true,
+      "captured_files": 26,
       "candidate_limit": 5000,
       "truncated": false,
       "enumeration_error_count": 0,
       "snapshot_error_count": 0,
-      "compensated_target_count": 1
+      "compensated_target_count": 3
     },
     "change_tracking": {
-      "touched_observed": 1,
-      "touched_retained": 1,
+      "touched_observed": 3,
+      "touched_retained": 3,
       "truncated": false,
       "bash_mutation": true,
-      "bash_discovered": 1,
+      "bash_discovered": 3,
       "bash_discovery_limit": 80,
       "bash_discovery_truncated": false
     },
     "candidates": {
-      "eligible_files": 1,
-      "selected_files": 1,
+      "eligible_files": 3,
+      "selected_files": 3,
       "limit": 20,
       "truncated": false
     },
     "scanning": {
-      "required_files": 1,
-      "scanned_files": 1,
+      "required_files": 3,
+      "scanned_files": 3,
       "skipped_files": 0,
       "failed_files": 0,
       "project_checks_required": 0,
@@ -51,55 +45,75 @@
       "detail_limit": 3,
       "truncated": false
     },
-    "reason_counts": {
-      "baseline_partial": 1,
-      "project_check_failed": 1
-    },
-    "reasons": [
-      {
-        "code": "baseline_partial",
-        "stage": "baseline",
-        "target": ".",
-        "detail": "baseline capture had enumeration or snapshot errors",
-        "affects_completion": true
-      },
-      {
-        "code": "project_check_failed",
-        "stage": "baseline",
-        "target": ".",
-        "detail": "baseline_partial: baseline capture had enumeration or snapshot errors",
-        "affects_completion": true
-      }
-    ],
+    "reason_counts": {},
+    "reasons": [],
     "reasons_truncated": false
   },
-  "generated_at": "2026-11-13T22:43:43.744Z",
+  "generated_at": "2026-11-13T22:47:15.186Z",
   "session_id": "sess_5be8da39-9d06-4d4c-8d61-05b35847d776",
   "target": ".",
-  "revision": "5daf887de4b3f05ca89f73d5f2fe2b43b047bc84",
+  "revision": "12bcdbda786bfcd147036b43047ded2fe8cfc2a3",
   "rules_version": "unavailable",
-  "diff_hash": "c6fe8f427015f1c225f1cfc504c7baee2988a8ee744710a6ed74e936f3dfcf40",
+  "diff_hash": "8a739a9c76351c6b935492a128b2dab3325dac9b21f3425991dd7e6df65fd3b5",
   "diff": {
     "algorithm": "sha256",
-    "changed_file_count": 1,
+    "changed_file_count": 3,
     "changed_files": [
       {
         "file": "src/app/page.tsx",
         "ranges": [
           {
-            "start": 414,
-            "end": 416
+            "start": 13,
+            "end": 13
+          },
+          {
+            "start": 21,
+            "end": 26
+          },
+          {
+            "start": 70,
+            "end": 86
+          },
+          {
+            "start": 237,
+            "end": 258
+          },
+          {
+            "start": 478,
+            "end": 494
           }
         ],
-        "before_hash": "212cc3724962a891db61d3d37c3edaa2003d98850abe333c2e3507cc89503cc8",
-        "after_hash": "e86c56ccfe2f8072ca29b4fad60e9636f8b3f8a6d8fbf9faf7568910a723d23f"
+        "before_hash": "e86c56ccfe2f8072ca29b4fad60e9636f8b3f8a6d8fbf9faf7568910a723d23f",
+        "after_hash": "f184536ee48eb0f4489de9921757708122291804b00fbbd3128f2ca1d5528179"
+      },
+      {
+        "file": "src/components/icons.tsx",
+        "ranges": [
+          {
+            "start": 179,
+            "end": 216
+          }
+        ],
+        "before_hash": "82fdf92e2bea0dfdf0d37890688c41396b4e32fe696030b2bf9c97f827adefcb",
+        "after_hash": "65585de5e0429d7ae3898d2571993dca9951f1b37bd44fe13d91d8e8ac7c6308"
+      },
+      {
+        "file": "src/lib/sound.ts",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 75
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "cfd23b9e49d7c926e76fa5f4c19a4918cf1aa790a0319560e099ab6964835c4d"
       }
     ]
   },
   "timing": {
-    "started_at": "2026-11-13T22:43:42.722Z",
-    "completed_at": "2026-11-13T22:43:43.744Z",
-    "duration_ms": 1022,
+    "started_at": "2026-11-13T22:47:14.145Z",
+    "completed_at": "2026-11-13T22:47:15.186Z",
+    "duration_ms": 1041,
     "measurement": "hook_wall_clock"
   },
   "tokens": {
@@ -113,11 +127,11 @@
     "schemaVersion": "mimosa-gate-telemetry/v1",
     "profile": "gate",
     "operation": "Stop",
-    "outcome": "partial/INCONCLUSIVE",
-    "latencyMs": 1022,
-    "peakMemoryBytes": 178761728,
+    "outcome": "complete",
+    "latencyMs": 1041,
+    "peakMemoryBytes": 177745920,
     "memoryMeasurement": "max-observed-process-rss",
-    "scannedFiles": 1,
+    "scannedFiles": 3,
     "cache": {
       "hits": 0,
       "misses": 0,
@@ -142,8 +156,8 @@
   "finding_events": [],
   "findings": [],
   "artifacts": {
-    "immutable_report": ".mimosa/reports/task-review-sess_5be8da39-9d06-4d4c-8d61-05b35847d776-20261113T224343744Z-1325086-ad94c708caf5.json",
+    "immutable_report": ".mimosa/reports/task-review-sess_5be8da39-9d06-4d4c-8d61-05b35847d776-20261113T224715186Z-1326387-efe8c53138c0.json",
     "latest_report": ".mimosa/reports/task-review-sess_5be8da39-9d06-4d4c-8d61-05b35847d776.json",
-    "history_summary": ".mimosa/history/run-20261113T224343744Z-1325086-ad94c708caf5.json"
+    "history_summary": ".mimosa/history/run-20261113T224715186Z-1326387-efe8c53138c0.json"
   }
 }
