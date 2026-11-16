@@ -53,17 +53,17 @@ export type ShareState = {
 };
 
 export const MODE_LABELS: Record<Mode, string> = {
-  median: "Fairest",
-  minmax: "Min max trip",
-  centroid: "Average",
+  median: "Least travel",
+  minmax: "Min-max",
+  centroid: "Geographic center",
 };
 
 export const MODE_HINTS: Record<Mode, string> = {
   median:
-    "Minimizes total travel (weighted geometric median). The classic fair meeting point.",
+    "Keeps the group’s total travel low, with individual travel priorities included.",
   minmax:
-    "Minimizes the longest single trip, so nobody gets stranded. (Weights are ignored here.)",
-  centroid: "The geographic center of gravity of everyone (weighted centroid).",
+    "Keeps the longest journey as short as possible. Everyone has equal priority.",
+  centroid: "Finds the geographic center of your group, adjusted for travel priorities.",
 };
 
 export const MAX_PEOPLE = 6;

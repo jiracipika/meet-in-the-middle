@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local security-scanner state
 .mimosa/
+
+/test-results/
+/playwright-report/

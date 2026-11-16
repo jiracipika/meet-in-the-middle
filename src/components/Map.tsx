@@ -6,7 +6,7 @@ import type { MapViewProps } from "./MapView";
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center bg-[#0B0D17] text-sm text-[#9AA3C7]">
+    <div className="grid h-full w-full place-items-center bg-[#e9ede4] text-sm text-[#718078]">
       Loading map…
     </div>
   ),

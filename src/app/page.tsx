@@ -1,23 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence } from "motion/react";
+import Link from "next/link";
+import ShareDialog from "@/components/ShareDialog";
 import Map from "@/components/Map";
 import PersonCard from "@/components/PersonCard";
 import ModeToggle from "@/components/ModeToggle";
 import StatsPanel, { type PersonTrip, type Stats } from "@/components/StatsPanel";
 import VenueBar, { type VenueState } from "@/components/VenueBar";
-import BottomSheet from "@/components/BottomSheet";
-import Background from "@/components/Background";
-import SplashIntro from "@/components/SplashIntro";
-import { ChevronUpIcon, ShareIcon, SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
+import { CrosshairIcon, PlusIcon, ShareIcon, SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import {
   computeMeeting,
   estimateTravel,
   fairnessScore,
   haversineKm,
 } from "@/lib/geo";
-import { fmtKm } from "@/lib/format";
 import {
   initAudio,
   loadMuted,
@@ -27,6 +24,7 @@ import {
 import { PERSON_COLORS, nextFreeColor } from "@/lib/palette";
 import { decodeState, encodeState } from "@/lib/share";
 import {
+  MODE_LABELS,
   DEFAULT_NAMES,
   MAX_PEOPLE,
   type LatLng,
@@ -66,7 +64,11 @@ export default function Home() {
     state: VenueState;
   } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [view, setView] = useState<"plan" | "map" | "results">("plan");
+  const [shareUrl, setShareUrl] = useState("");
+  const [notice, setNotice] = useState("");
+  const venueRequest = useRef<AbortController | null>(null);
+  const [fitVersion, setFitVersion] = useState(0);
   const [muted, setMuted] = useState(false);
 
   // Load the persisted sound preference after hydration (avoids mismatch),
@@ -153,35 +155,36 @@ export default function Home() {
   // A pinned venue or drag is only kept while the calculated spot stays near
   // where it was pinned — pure derivation, no state syncing.
   const activeOverride = useMemo(() => {
+    if (!meeting) return null;
     if (!override || override.sticky) return override;
     if (meeting && haversineKm(override.pinnedAt, meeting) > 1.5) return null;
     return override;
   }, [override, meeting]);
 
+  const spot: LatLng | null = activeOverride ?? meeting;
+
   const venueInfo = useMemo((): {
     venues: Venue[];
     state: VenueState;
   } => {
-    if (!venueSearch) return { venues: [], state: "idle" };
-    if (meeting && haversineKm(venueSearch.origin, meeting) > 2) {
+    if (!venueSearch || !spot) return { venues: [], state: "idle" };
+    if (haversineKm(venueSearch.origin, spot) > 0.1) {
       return { venues: [], state: "idle" };
     }
     return venueSearch;
-  }, [venueSearch, meeting]);
-
-  const spot: LatLng | null = activeOverride ?? meeting;
+  }, [venueSearch, spot]);
 
   const spotDisplay = useMemo(() => {
     if (!spot) return null;
     return {
       lat: spot.lat,
       lon: spot.lon,
-      label: activeOverride ? activeOverride.label : "Fairest spot",
+      label: activeOverride ? activeOverride.label : `${MODE_LABELS[mode]} spot`,
       sub: activeOverride
         ? `${activeOverride.amenity ? activeOverride.amenity.replace("_", " ") + " · " : ""}chosen spot`
         : "calculated meeting point",
     };
-  }, [spot, activeOverride]);
+  }, [spot, activeOverride, mode]);
 
   const trips: PersonTrip[] = useMemo(() => {
     if (!spot) return [];
@@ -256,19 +259,6 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [meeting]);
 
-  // When a spot first becomes available (demo loaded, address added), snap the
-  // mobile sheet closed so the map reveal is visible. Deferred to a timeout so
-  // it reads as an external-state callback, not a render-phase update.
-  const prevLocatedRef = useRef(0);
-  useEffect(() => {
-    const grew = located >= 2 && located > prevLocatedRef.current;
-    prevLocatedRef.current = located;
-    if (grew && sheetOpen) {
-      const t = setTimeout(() => setSheetOpen(false), 0);
-      return () => clearTimeout(t);
-    }
-  }, [located, sheetOpen]);
-
   /* ---------- actions ---------- */
 
   const updatePerson = useCallback((id: string, patch: Partial<Person>) => {
@@ -291,6 +281,7 @@ export default function Home() {
   }, []);
 
   const loadDemo = useCallback(() => {
+    venueRequest.current?.abort();
     setPeople(
       DEMO.map(([label, lat, lon], i) => ({
         id: newId(),
@@ -302,23 +293,29 @@ export default function Home() {
     );
     setOverride(null);
     setVenueSearch(null);
-    setSheetOpen(false);
+    setView("map");
   }, []);
 
   const findVenues = useCallback(async () => {
-    if (!meeting) return;
-    setVenueSearch({ origin: meeting, venues: [], state: "loading" });
+    if (!spot) return;
+    venueRequest.current?.abort();
+    const controller = new AbortController();
+    venueRequest.current = controller;
+    const origin = { ...spot };
+    setVenueSearch({ origin, venues: [], state: "loading" });
     try {
-      const res = await fetch(
-        `/api/venues?lat=${meeting.lat.toFixed(5)}&lon=${meeting.lon.toFixed(5)}`,
-      );
+      const res = await fetch(`/api/venues?lat=${origin.lat.toFixed(5)}&lon=${origin.lon.toFixed(5)}`, {
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(55000)]),
+      });
       if (!res.ok) throw new Error("venues_failed");
       const json: { venues?: Venue[] } = await res.json();
-      setVenueSearch({ origin: meeting, venues: json.venues ?? [], state: "done" });
+      if (!controller.signal.aborted) setVenueSearch({ origin, venues: json.venues ?? [], state: "done" });
     } catch {
-      setVenueSearch({ origin: meeting, venues: [], state: "error" });
+      if (!controller.signal.aborted) setVenueSearch({ origin, venues: [], state: "error" });
     }
-  }, [meeting]);
+  }, [spot]);
+
+  useEffect(() => () => venueRequest.current?.abort(), []);
 
   const pickVenue = useCallback(
     (v: Venue) => {
@@ -329,7 +326,7 @@ export default function Home() {
         amenity: v.amenity,
         pinnedAt: meeting ?? { lat: v.lat, lon: v.lon },
       });
-      setSheetOpen(false);
+      setView("map");
     },
     [meeting],
   );
@@ -365,6 +362,7 @@ export default function Home() {
           }
         : undefined,
     };
+    setNotice("This link includes the names and locations you added.");
     const hash = encodeState(state);
     const url = `${window.location.origin}${window.location.pathname}#${hash}`;
     window.history.replaceState(null, "", `#${hash}`);
@@ -373,277 +371,91 @@ export default function Home() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      // clipboard blocked: the URL is still updated in the address bar
+      setShareUrl(url);
     }
   }
 
-  /* ---------- mobile sheet summary (peek bar) ---------- */
-
-  const sheetSummary = (
-    <div className="flex h-full w-full items-center gap-2">
-      <span
-        aria-hidden
-        className={`h-2.5 w-2.5 shrink-0 rounded-full ${spot ? "mitm-spot-dot" : "bg-[#3A4266]"}`}
-      />
-      <span className="min-w-0 flex-1 truncate text-sm font-bold">
-        {spot && spotDisplay
-          ? spotDisplay.label
-          : "Add people & addresses"}
-      </span>
-      {spot && stats ? (
-        <>
-          <span
-            title="Balance score"
-            className="shrink-0 rounded-full bg-[#FFD166] px-2 py-0.5 text-[11px] font-extrabold text-[#0B0D17] tabular-nums"
-          >
-            {stats.fairness}
-          </span>
-          <span className="shrink-0 rounded-full border border-[#2A3150] px-2 py-0.5 text-[11px] font-bold text-[#9AA3C7] tabular-nums">
-            {fmtKm(stats.totalKm)} km
-          </span>
-        </>
-      ) : (
-        <span className="shrink-0 rounded-full border border-[#2A3150] px-2 py-0.5 text-[11px] font-bold text-[#9AA3C7] tabular-nums">
-          {located}/{people.length} located
-        </span>
-      )}
-      <ChevronUpIcon
-        className={`h-4 w-4 shrink-0 text-[#9AA3C7] transition-transform ${
-          sheetOpen ? "rotate-180" : ""
-        }`}
-      />
-    </div>
-  );
-
-  const personCards = (idPrefix: string) => (
-    <AnimatePresence mode="popLayout" initial={false}>
-      {people.map((p) => (
-        <PersonCard
-          key={`${idPrefix}-${p.id}`}
-          person={p}
-          canRemove={people.length > 1}
-          bias={meeting}
-          onChange={(patch) => updatePerson(p.id, patch)}
-          onRemove={() => removePerson(p.id)}
-          onHover={setHoveredId}
-        />
-      ))}
-    </AnimatePresence>
-  );
-
-  const addAndHint = (idSuffix: string) => (
-    <>
-      <button
-        onClick={addPerson}
-        disabled={people.length >= MAX_PEOPLE}
-        className="rounded-2xl border border-dashed border-[#3A4266] py-3 text-sm font-bold text-[#9AA3C7] transition-colors hover:border-[#FFD166] hover:text-[#FFD166] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {people.length >= MAX_PEOPLE
-          ? `Max ${MAX_PEOPLE} people`
-          : "+ Add someone"}
-      </button>
-      <p className="text-center text-[11px] text-[#5A6288]">
-        {located}/{people.length} located
-        {needMore
-          ? " · add at least 2 addresses"
-          : " · tweak the pull sliders and watch the spot move"}
-        {idSuffix === "sheet" ? " · drag the gold spot to fine-tune" : ""}
-      </p>
-    </>
-  );
+  const result = spot && stats && spotDisplay ? (
+    <StatsPanel trips={trips} stats={stats} spot={{ ...spot, label: spotDisplay.label }}
+      overrideActive={activeOverride !== null} onReset={activeOverride ? () => setOverride(null) : null} />
+  ) : null;
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden">
-      <Background />
-
-      {/* Floating glass pill header (over the map area only, so it never
-          covers the desktop sidebar) */}
-      <div className="pointer-events-none absolute top-0 right-3 left-3 z-20 flex justify-center pt-[max(12px,env(safe-area-inset-top))] lg:left-[416px]">
-        <div
-          className="mitm-beam mitm-glass pointer-events-auto flex w-full max-w-2xl items-center justify-between gap-2 rounded-full py-2 pl-5 pr-2 shadow-[0_18px_50px_#000000aa]"
-          style={{ "--beam-color": "#FFD166" } as React.CSSProperties}
-        >
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span
-              aria-hidden
-              className="mitm-gradient-text whitespace-nowrap text-base font-black tracking-tight sm:text-lg"
-            >
-              MEET IN THE MIDDLE
-            </span>
-            <span className="mitm-kicker hidden text-[9px] text-[#9AA3C7] md:block">
-              six friends · one fair spot
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={() => {
-                const next = !muted;
-                setMuted(next);
-                persistMuted(next);
-              }}
-              aria-label={muted ? "Unmute sounds" : "Mute sounds"}
-              aria-pressed={!muted}
-              title={muted ? "Sound off" : "Sound on"}
-              className="grid h-9 w-9 place-items-center rounded-full border border-[#3A4266] text-[#9AA3C7] transition-colors hover:text-[#E7EAF6]"
-            >
-              {muted ? (
-                <SpeakerOffIcon className="h-4 w-4" />
-              ) : (
-                <SpeakerIcon className="h-4 w-4" />
-              )}
-            </button>
-            {needMore && (
-              <button
-                onClick={loadDemo}
-                className="min-h-[36px] rounded-full border border-[#3A4266] px-3 text-xs font-bold text-[#B9C3EA] transition-colors hover:border-[#4CC9F0] hover:text-[#4CC9F0]"
-              >
-                Demo
-              </button>
-            )}
-            <button
-              onClick={share}
-              aria-label="Share link"
-              className="flex min-h-[36px] items-center gap-1.5 rounded-full bg-[#FFD166] px-3.5 text-xs font-extrabold text-[#0B0D17] transition-all hover:brightness-110 active:scale-95"
-            >
-              <ShareIcon className="h-4 w-4" aria-hidden />
-              <span>{copied ? "Copied ✓" : "Share"}</span>
-            </button>
-          </div>
+    <div className="app-shell" data-view={view}>
+      <header className="app-header">
+        <Link className="brand" href="/" aria-label="Meet in the Middle home">
+          <span className="brand-symbol" aria-hidden><span /><span /></span>
+          <span>meet in the <strong>middle</strong><small>A little closer, together.</small></span>
+        </Link>
+        <div className="header-actions">
+          <span className="header-note">Less planning. More catching up.</span>
+          <button className="icon-button sound-button" onClick={() => { setMuted(!muted); persistMuted(!muted); }}
+            aria-label={muted ? "Unmute sounds" : "Mute sounds"} aria-pressed={!muted}>
+            {muted ? <SpeakerOffIcon /> : <SpeakerIcon />}
+          </button>
+          <button className="button primary" onClick={share} disabled={located < 2} aria-label="Share link">
+            <ShareIcon /> {copied ? "Link copied" : "Share plan"}
+          </button>
         </div>
-      </div>
+      </header>
 
-      <main className="relative z-10 flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Desktop sidebar */}
-        <aside className="mitm-scroll hidden w-[400px] flex-none flex-col gap-3 overflow-y-auto border-r border-[#1E2338] bg-[#0E1120] p-4 lg:flex">
-          {personCards("aside")}
-          {addAndHint("aside")}
-        </aside>
-
-        <section className="relative min-h-0 flex-1">
-          <Map
-            people={mapPeople}
-            spot={spotDisplay}
-            highlightedId={hoveredId}
-            maxDistKm={maxDistKm}
-            onSpotDrag={onSpotDrag}
-          />
-
-          {/* Desktop overlays */}
-          <div className="absolute left-3 top-[calc(76px+env(safe-area-inset-top,0px))] z-[1000] hidden lg:block">
-            <ModeToggle mode={mode} onChange={setMode} />
+      <main className="workspace">
+        <section className="planner" aria-label="Plan your meetup">
+          <div className="planner-intro">
+            <span className="eyebrow">GOOD COMPANY. FAIR JOURNEYS.</span>
+            <h1>Your people.<br />Your meeting spot.</h1>
+            <p>Start from different places.<br />Find somewhere to come together.</p>
           </div>
-          <div className="absolute right-3 top-[calc(76px+env(safe-area-inset-top,0px))] z-[1000] hidden lg:flex">
-            <VenueBar
-              state={venueInfo.state}
-              venues={venueInfo.venues}
-              activeId={
-                activeOverride &&
-                venueInfo.venues.some((v) => v.name === activeOverride.label)
-                  ? (venueInfo.venues.find(
-                      (v) => v.name === activeOverride.label,
-                    )?.id ?? null)
-                  : null
-              }
-              disabled={needMore}
-              onFind={findVenues}
-              onPick={pickVenue}
-              onClose={() => setVenueSearch(null)}
-            />
+          <div className="section-heading"><h2>Who’s coming?</h2><span>{people.length} / {MAX_PEOPLE} people</span></div>
+          <div className="people-list">
+            {people.map((p, i) => <PersonCard key={p.id} person={p} index={i} canRemove={people.length > 2}
+              bias={meeting} weightsEnabled={mode !== "minmax"}
+              onChange={(patch) => updatePerson(p.id, patch)} onRemove={() => removePerson(p.id)} onHover={setHoveredId} />)}
           </div>
-
-          {/* Mobile overlays (stacked under the floating header) */}
-          <div className="absolute left-3 top-[calc(76px+env(safe-area-inset-top,0px))] z-[1000] flex flex-col items-start gap-2 lg:hidden">
-            <ModeToggle mode={mode} onChange={setMode} />
-            <VenueBar
-              align="left"
-              compact
-              state={venueInfo.state}
-              venues={venueInfo.venues}
-              activeId={
-                activeOverride &&
-                venueInfo.venues.some((v) => v.name === activeOverride.label)
-                  ? (venueInfo.venues.find(
-                      (v) => v.name === activeOverride.label,
-                    )?.id ?? null)
-                  : null
-              }
-              disabled={needMore}
-              onFind={findVenues}
-              onPick={pickVenue}
-              onClose={() => setVenueSearch(null)}
-            />
+          <button className="button add-person" onClick={addPerson} disabled={people.length >= MAX_PEOPLE}>
+            <PlusIcon /> {people.length >= MAX_PEOPLE ? "Your group is full" : "Add a friend"}
+          </button>
+          <div className="mode-section"><div className="section-heading"><h2>Find your middle</h2><span>03 ways to meet</span></div>
+            <ModeToggle mode={mode} onChange={(next) => { setMode(next); setOverride(null); }} />
           </div>
+          <div className="planner-status" role="status"><span className={needMore ? "status-dot" : "status-dot ready"} />
+            {needMore ? `${located} of 2 starting points added` : `${located} people located · your spot is ready`}
+          </div>
+          <button className="button primary mobile-show-map" onClick={() => setView("map")} disabled={needMore}>See our meeting spot →</button>
+          <div className="planner-footer"><span>No account. Just good company.</span><button onClick={loadDemo}>Try a demo ↗</button></div>
+        </section>
 
-          {/* Desktop stats overlay */}
-          {spot && stats && (
-            <div className="absolute bottom-3 left-3 z-[1000] hidden w-[min(360px,calc(100%-24px))] lg:block">
-              <StatsPanel
-                trips={trips}
-                stats={stats}
-                spot={{ lat: spot.lat, lon: spot.lon, label: spotDisplay!.label }}
-                overrideActive={activeOverride !== null}
-                onReset={activeOverride ? () => setOverride(null) : null}
-              />
-            </div>
-          )}
+        <section className="map-panel" aria-label="Meeting map">
+          <Map people={mapPeople} spot={spotDisplay} highlightedId={hoveredId} maxDistKm={maxDistKm}
+            onSpotDrag={onSpotDrag} fitVersion={fitVersion} />
+          <div className="map-topbar"><span className="map-badge"><i /> {needMore ? "A world of possibilities" : `${MODE_LABELS[mode]} meeting point`}</span>
+            <button className="button map-fit" onClick={() => setFitVersion(v => v + 1)} disabled={!located}><CrosshairIcon /> Fit everyone</button>
+          </div>
+          {needMore && <div className="map-empty">
+            <div className="empty-symbol" aria-hidden>↗ <span>↙</span></div>
+            <span className="eyebrow">THE BEST PLANS START HERE</span>
+            <h2>Meet halfway.<br />Make a whole day of it.</h2>
+            <p>{located ? "One more starting point and we’ll find your middle." : "Add your starting points and we’ll connect the dots."}</p>
+            <button className="button primary" onClick={loadDemo}>Explore a Berlin meetup <span>↗</span></button>
+            <small>Up to 6 people · Anywhere in the world</small>
+          </div>}
+          {!needMore && <div className="map-venue"><VenueBar state={venueInfo.state} venues={venueInfo.venues}
+            activeId={venueInfo.venues.find(v => v.name === activeOverride?.label)?.id ?? null}
+            disabled={needMore} onFind={findVenues} onPick={pickVenue}
+            onClose={() => { venueRequest.current?.abort(); setVenueSearch(null); }} /></div>}
+          <div className="map-caption">{needMore ? "A shared destination starts with you." : "Make it yours — drag the green meeting pin to fine-tune."}</div>
+        </section>
 
-          {needMore && (
-            <div className="pointer-events-none absolute inset-0 z-[900] grid place-items-center p-4 pb-28 lg:pb-4">
-              <div
-                className="mitm-beam mitm-glass pointer-events-auto max-w-xs rounded-2xl px-6 py-5 text-center shadow-[0_20px_60px_#000000aa]"
-                style={{ "--beam-color": "#4CC9F0" } as React.CSSProperties}
-              >
-                <p className="mitm-kicker text-[9px] text-[#4CC9F0]">
-                  get started
-                </p>
-                <p className="mitm-gradient-text mt-2 text-lg font-black leading-snug">
-                  Find your fairest meeting spot
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-[#9AA3C7]">
-                  {located === 0
-                    ? "Add each person's address — up to 6 people, anywhere on Earth."
-                    : "One more address and the spot appears."}
-                </p>
-                <button
-                  onClick={loadDemo}
-                  className="mt-3 min-h-[38px] rounded-full border border-[#4CC9F0] px-4 text-xs font-bold text-[#4CC9F0] transition-all hover:bg-[#4CC9F0] hover:text-[#0B0D17]"
-                >
-                  Try a Berlin demo
-                </button>
-              </div>
-            </div>
-          )}
+        <section className="results-panel" aria-label="Your meeting results">
+          {result ?? <div className="results-empty"><CrosshairIcon /><h2>Your spot is waiting</h2><p>Add at least two starting points to compare journeys and find your middle.</p><button className="button primary" onClick={() => setView("plan")}>Add starting points</button></div>}
         </section>
       </main>
-
-      {/* Mobile bottom sheet (people + stats) */}
-      <BottomSheet
-        expanded={sheetOpen}
-        onToggle={setSheetOpen}
-        summary={sheetSummary}
-      >
-        <div className="flex flex-col gap-3">
-          {spot && stats ? (
-            <StatsPanel
-              trips={trips}
-              stats={stats}
-              spot={{ lat: spot.lat, lon: spot.lon, label: spotDisplay!.label }}
-              overrideActive={activeOverride !== null}
-              onReset={activeOverride ? () => setOverride(null) : null}
-              scroll={false}
-            />
-          ) : (
-            <p className="rounded-2xl border border-[#252B44] bg-[#141826] p-3 text-xs leading-relaxed text-[#9AA3C7]">
-              Add at least two addresses — the meeting spot, travel distances and
-              balance score appear here.
-            </p>
-          )}
-          {personCards("sheet")}
-          {addAndHint("sheet")}
-        </div>
-      </BottomSheet>
-
-      <SplashIntro />
+      <nav className="mobile-nav" aria-label="Meetup views">
+        {([['plan', '01', 'People'], ['map', '02', 'Map'], ['results', '03', 'Your spot']] as const).map(([id, n, label]) =>
+          <button key={id} onClick={() => setView(id)} aria-current={view === id ? "page" : undefined}><span>{n}</span>{label}{id === "results" && !needMore && <i />}</button>)}
+      </nav>
+      <div className="sr-only" role="status">{copied ? "Plan link copied to clipboard." : notice}</div>
+      {shareUrl && <ShareDialog url={shareUrl} onClose={() => setShareUrl("")} />}
     </div>
   );
 }

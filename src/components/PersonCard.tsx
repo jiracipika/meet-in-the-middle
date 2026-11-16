@@ -1,259 +1,131 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
-import { XIcon } from "@/components/icons";
+import { useEffect, useId, useRef, useState } from "react";
+import { CrosshairIcon, XIcon } from "./icons";
 import type { Person, Place } from "@/lib/types";
 
-const COORD_RE = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
-
 export function parseCoords(q: string): Place | null {
-  const m = q.match(COORD_RE);
+  const m = q.match(/^\s*([+-]?\d{1,2}(?:\.\d+)?)\s*[,;]\s*([+-]?\d{1,3}(?:\.\d+)?)\s*$/);
   if (!m) return null;
-  const lat = Number(m[1]);
-  const lon = Number(m[2]);
+  const lat = Number(m[1]), lon = Number(m[2]);
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   return { label: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, lat, lon };
 }
 
-export default function PersonCard({
-  person,
-  canRemove,
-  bias,
-  onChange,
-  onRemove,
-  onHover,
-}: {
-  person: Person;
-  canRemove: boolean;
-  bias: { lat: number; lon: number } | null;
-  onChange: (patch: Partial<Person>) => void;
-  onRemove: () => void;
-  onHover: (id: string | null) => void;
+export default function PersonCard({ person, index, canRemove, bias, weightsEnabled, onChange, onRemove, onHover }: {
+  person: Person; index: number; canRemove: boolean; bias: { lat: number; lon: number } | null;
+  weightsEnabled: boolean; onChange: (patch: Partial<Person>) => void;
+  onRemove: () => void; onHover: (id: string | null) => void;
 }) {
   const [query, setQuery] = useState(person.place?.label ?? "");
-  const [focused, setFocused] = useState(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Place[]>([]);
   const [active, setActive] = useState(0);
+  const [error, setError] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [locating, setLocating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const locationVersion = useRef(0);
+  const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const biasLat = bias?.lat, biasLon = bias?.lon;
 
-  // close the dropdown when clicking elsewhere
+  useEffect(() => () => { locationVersion.current++; abortRef.current?.abort(); }, []);
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  // debounced geocode (skipped when the query is a coordinate pair)
-  useEffect(() => {
+    const ac = new AbortController();
+    abortRef.current = ac;
     const q = query.trim();
+    if (!open || q.length < 3 || parseCoords(q) || person.place) return () => ac.abort();
     const timer = setTimeout(async () => {
-      if (!focused || q.length < 3 || parseCoords(q)) {
-        setItems([]);
-        setLoading(false);
-        return;
-      }
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
       setLoading(true);
+      setError("");
       try {
-        const biasQ = bias
-          ? `&lat=${bias.lat.toFixed(3)}&lon=${bias.lon.toFixed(3)}`
-          : "";
-        const res = await fetch(
-          `/api/geocode?q=${encodeURIComponent(q)}${biasQ}`,
-          { signal: ac.signal },
-        );
-        if (!res.ok) return;
+        const biasQ = biasLat !== undefined && biasLon !== undefined ? `&lat=${biasLat.toFixed(3)}&lon=${biasLon.toFixed(3)}` : "";
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}${biasQ}`, {
+          signal: AbortSignal.any([ac.signal, AbortSignal.timeout(12000)]),
+        });
+        if (!res.ok) throw new Error("search_failed");
         const json: { results?: Place[] } = await res.json();
         if (ac.signal.aborted) return;
         setItems((json.results ?? []).slice(0, 6));
         setActive(0);
-        setOpen(true);
+        setSearched(true);
       } catch {
-        // aborted or network hiccup: keep the dropdown closed
+        if (!ac.signal.aborted) setError("Address search is unavailable. Try again, or enter latitude, longitude.");
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }
-    }, 280);
-    return () => clearTimeout(timer);
-  }, [query, focused, bias]);
+    }, 300);
+    return () => { clearTimeout(timer); ac.abort(); };
+  }, [query, open, biasLat, biasLon, person.place]);
 
-  const coordPlace = focused ? parseCoords(query.trim()) : null;
-  const display: Place[] = coordPlace ? [coordPlace] : items;
-
+  const coord = parseCoords(query);
+  const display = coord ? [coord] : items;
+  const activeIndex = Math.min(active, Math.max(0, display.length - 1));
   function applyPlace(place: Place) {
+    abortRef.current?.abort();
+    locationVersion.current++;
     onChange({ place });
-    setQuery(place.label);
-    setOpen(false);
-    setFocused(false);
-    setItems([]);
+    setQuery(place.label); setOpen(false); setItems([]); setError(""); setLoading(false); setLocating(false);
   }
-
-  function onInput(v: string) {
-    setQuery(v);
+  function onInput(value: string) {
+    abortRef.current?.abort();
+    locationVersion.current++;
+    setLocating(false); setQuery(value); setItems([]); setActive(0); setError(""); setSearched(false); setLoading(false); setOpen(true);
     if (person.place) onChange({ place: null });
-    setOpen(true);
+  }
+  function findMe() {
+    abortRef.current?.abort();
+    setOpen(false); setLoading(false); setError("");
+    if (!navigator.geolocation) { setError("Location is not supported here. Enter an address instead."); return; }
+    const version = ++locationVersion.current;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      if (version !== locationVersion.current) return;
+      applyPlace({ lat: coords.latitude, lon: coords.longitude, label: `Current location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})` });
+    }, (err) => {
+      if (version !== locationVersion.current) return;
+      setLocating(false);
+      setError(err.code === 1 ? "Location permission is off. Allow it in your browser, or enter an address." : err.code === 3 ? "Location took too long. Try again or enter an address." : "We couldn’t locate you. Try again or enter an address.");
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Escape") {
-      setOpen(false);
-      return;
-    }
-    if (display.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActive((a) => (a + 1) % display.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActive((a) => (a - 1 + display.length) % display.length);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      applyPlace(display[active]);
-    }
-  }
-
-  const initial = (person.name.trim()[0] ?? "?").toUpperCase();
-
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const el = e.currentTarget;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-    el.style.setProperty("--my", `${e.clientY - r.top}px`);
-  }
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 320, damping: 28 }}
-      onMouseEnter={() => onHover(person.id)}
-      onMouseLeave={() => onHover(null)}
-      onPointerMove={onPointerMove}
-      className="mitm-beam mitm-glass relative rounded-2xl p-3 shadow-[0_10px_30px_#00000055]"
-      style={{ "--beam-color": person.color } as React.CSSProperties}
-    >
-      <div aria-hidden className="mitm-spot-glow" />
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-extrabold text-[#0B0D17]"
-          style={{ background: person.color }}
-        >
-          {initial}
-        </span>
-        <input
-          aria-label={`${person.name}'s name`}
-          value={person.name}
-          maxLength={24}
-          onChange={(e) => onChange({ name: e.target.value })}
-          className="min-w-0 flex-1 bg-transparent text-[16px] font-bold outline-none sm:text-sm"
-          placeholder="Name"
-        />
-        {canRemove && (
-          <button
-            onClick={onRemove}
-            aria-label={`Remove ${person.name}`}
-            title="Remove"
-            className="-mr-1.5 -mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#9AA3C7] transition-colors hover:bg-[#232A44] hover:text-[#FF6B9D]"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      <div ref={wrapRef} className="relative mt-2">
-        <input
-          aria-label={`${person.name}'s address`}
-          value={query}
-          onChange={(e) => onInput(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onKeyDown={onKeyDown}
-          placeholder={`Address for ${person.name} — or paste "lat, lon"`}
-          className={`w-full rounded-xl border bg-[#0E1120] px-3 py-2 text-[16px] outline-none transition-colors placeholder:text-[#5A6288] sm:text-sm ${
-            person.place ? "border-[#2A3150]" : "border-[#3A4266]"
-          }`}
-          style={person.place ? undefined : { borderColor: person.color }}
-        />
-        {loading && (
-          <span
-            aria-hidden
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
-          >
-            <span className="mitm-spinner" />
-          </span>
-        )}
-        {open && display.length > 0 && (
-          <ul
-            role="listbox"
-            className="mitm-scroll absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-[#2A3150] bg-[#161B2E] py-1 shadow-[0_16px_40px_#000000aa]"
-          >
-            {display.map((s, i) => (
-              <li key={`${s.label}-${i}`}>
-                <button
-                  role="option"
-                  aria-selected={i === active}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => applyPlace(s)}
-                  className="flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left text-sm"
-                >
-                  <span
-                    aria-hidden
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ background: i === active ? person.color : "#3A4266" }}
-                  />
-                  <span className="truncate">{s.label}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        <span
-          className={`min-w-0 flex-1 truncate text-[11px] ${
-            person.place ? "text-[#9AA3C7]" : "text-[#5A6288]"
-          }`}
-        >
-          {person.place
-            ? `${person.place.lat.toFixed(4)}, ${person.place.lon.toFixed(4)}`
-            : "Not located yet"}
-        </span>
-      </div>
-
-      <label
-        title="Higher pull moves the spot toward this person (e.g. no car, tight schedule)"
-        className={`mt-1 flex items-center gap-2 text-[11px] font-semibold text-[#9AA3C7] ${
-          person.place ? "" : "pointer-events-none opacity-40"
-        }`}
-      >
-        <span className="whitespace-nowrap">pull</span>
-        <input
-          type="range"
-          aria-label={`Pull weight for ${person.name}`}
-          min={0.5}
-          max={2}
-          step={0.05}
-          value={person.weight}
-          disabled={!person.place}
-          onChange={(e) => onChange({ weight: Number(e.target.value) })}
-          className="mitm-range flex-1"
-          style={{ color: person.color }}
-        />
-        <span className="w-9 text-right tabular-nums">
-          ×{person.weight.toFixed(2)}
-        </span>
-      </label>
-    </motion.div>
-  );
+  return <article className="person-card" onMouseEnter={() => onHover(person.id)} onMouseLeave={() => onHover(null)}>
+    <div className="person-heading"><span className="person-avatar" style={{ background: person.color }} aria-hidden>{index + 1}</span>
+      <input className="person-name" aria-label={`${person.name}'s name`} value={person.name} maxLength={24} placeholder="Friend’s name" onChange={e => onChange({ name: e.target.value })} />
+      {canRemove && <button className="icon-button remove-person" aria-label={`Remove ${person.name}`} onClick={onRemove}><XIcon /></button>}
+      {!canRemove && <span className="person-tag">{index === 0 ? "YOU?" : "A FRIEND"}</span>}
+    </div>
+    <div className="address-wrap" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
+      <label className="sr-only" htmlFor={`${listId}-input`}>{person.name}&apos;s address</label>
+      <input ref={inputRef} id={`${listId}-input`} role="combobox" aria-autocomplete="list" aria-expanded={open && display.length > 0}
+        aria-controls={`${listId}-list`} aria-activedescendant={open && display.length ? `${listId}-${activeIndex}` : undefined}
+        autoComplete="off" maxLength={240} placeholder="City, address, or coordinates" value={query}
+        onChange={e => onInput(e.target.value)} onFocus={() => setOpen(true)}
+        onKeyDown={e => {
+          if (e.key === "Escape") { setOpen(false); return; }
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault(); setOpen(true);
+            if (display.length) setActive((activeIndex + (e.key === "ArrowDown" ? 1 : -1) + display.length) % display.length);
+          }
+          if (e.key === "Enter" && open && display.length) { e.preventDefault(); applyPlace(display[activeIndex]); }
+        }} />
+      {open && display.length > 0 && <ul id={`${listId}-list`} role="listbox" aria-label="Matching locations" className="address-options">
+        {display.map((place, i) => <li id={`${listId}-${i}`} key={`${place.label}-${i}`} role="option" aria-selected={activeIndex === i}
+          onMouseDown={e => e.preventDefault()} onMouseEnter={() => setActive(i)} onClick={() => applyPlace(place)}>{place.label}</li>)}
+      </ul>}
+    </div>
+    <div className="location-row"><span className={person.place ? "location-ready" : "muted"}>{loading ? "Searching…" : person.place ? "✓ Location added" : "Choose a starting point"}</span>
+      <button className="find-me" onClick={findMe} disabled={locating} aria-label={`Find me for ${person.name}`}><CrosshairIcon />{locating ? "Locating…" : "Find me"}</button>
+    </div>
+    {error && <p className="field-error" role="alert">{error}</p>}
+    {open && searched && !loading && !error && !display.length && <p className="field-help" role="status">No matches. Try a nearby city or paste coordinates.</p>}
+    <details className="weight-details"><summary>Adjust travel priority <span>{weightsEnabled ? `${person.weight.toFixed(1)}×` : "Not used in this mode"}</span></summary>
+      <p>{weightsEnabled ? "Give someone more pull if travelling is harder for them." : "Shortest longest trip treats everyone equally. Choose another mode to use priorities."}</p>
+      <input type="range" aria-label={`Pull weight for ${person.name}`} min={0.5} max={2} step={0.05} value={person.weight}
+        disabled={!person.place || !weightsEnabled} onChange={e => onChange({ weight: Number(e.target.value) })} />
+      <div><span>Less pull</span><span>More pull</span></div>
+    </details>
+  </article>;
 }
