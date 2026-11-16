@@ -1,5 +1,6 @@
 "use client";
 import { fmtKm, fmtMin } from "@/lib/format";
+import { onExternalLink } from "@/lib/native";
 export type PersonTrip = { id: string; name: string; color: string; km: number; driveMin: number };
 export type Stats = { totalKm: number; avgKm: number; spreadKm: number; fairness: number; maxKm: number };
 export default function StatsPanel({ trips, stats, spot, overrideActive, onReset }: {
@@ -18,7 +19,7 @@ export default function StatsPanel({ trips, stats, spot, overrideActive, onReset
       <p>100 means equal distances. A low score means journeys differ; it doesn’t mean the meeting calculation failed. Least total travel can favor people near the center.</p>
       <p>Average: {fmtKm(stats.avgKm)} km · Difference: {fmtKm(stats.spreadKm)} km</p>
     </details>
-    <a className="button primary maps-link" href={`https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lon}`} target="_blank" rel="noreferrer">Open in Google Maps <span>↗</span></a>
+    <a className="button primary maps-link" href={`https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lon}`} target="_blank" rel="noreferrer" onClick={onExternalLink}>Open in Google Maps <span>↗</span></a>
     <p className="distance-note">Distances are straight-line. Drive times are estimates, not live routes.</p>
   </div>;
 }

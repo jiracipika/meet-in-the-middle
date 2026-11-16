@@ -11,6 +11,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/clipboard": "^8.0.1",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/geolocation": "^8.2.4",
+    "@capacitor/share": "^8.0.3",
     "@types/leaflet": "^1.9.22",
     "leaflet": "^1.9.4",
     "motion": "^14.13.0",

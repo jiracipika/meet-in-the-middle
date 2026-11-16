@@ -23,6 +23,8 @@ import {
 } from "@/lib/sound";
 import { PERSON_COLORS, nextFreeColor } from "@/lib/palette";
 import { decodeState, encodeState } from "@/lib/share";
+import { apiUrl } from "@/lib/api";
+import { copyText, shareBase, shareUrl as nativeShareUrl } from "@/lib/native";
 import {
   MODE_LABELS,
   DEFAULT_NAMES,
@@ -304,7 +306,7 @@ export default function Home() {
     const origin = { ...spot };
     setVenueSearch({ origin, venues: [], state: "loading" });
     try {
-      const res = await fetch(`/api/venues?lat=${origin.lat.toFixed(5)}&lon=${origin.lon.toFixed(5)}`, {
+      const res = await fetch(apiUrl(`/api/venues?lat=${origin.lat.toFixed(5)}&lon=${origin.lon.toFixed(5)}`), {
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(55000)]),
       });
       if (!res.ok) throw new Error("venues_failed");
@@ -364,12 +366,14 @@ export default function Home() {
     };
     setNotice("This link includes the names and locations you added.");
     const hash = encodeState(state);
-    const url = `${window.location.origin}${window.location.pathname}#${hash}`;
-    window.history.replaceState(null, "", `#${hash}`);
+    const url = `${shareBase()}#${hash}`;
+    try { window.history.replaceState(null, "", `#${hash}`); } catch { /* app scheme: nothing to update */ }
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      if (!(await nativeShareUrl(url))) {
+        await copyText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }
     } catch {
       setShareUrl(url);
     }

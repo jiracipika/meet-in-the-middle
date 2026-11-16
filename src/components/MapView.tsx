@@ -14,6 +14,7 @@ import {
   useMap,
 } from "react-leaflet";
 import { GOLD } from "@/lib/palette";
+import { onExternalLink } from "@/lib/native";
 
 export type MapPerson = {
   id: string;
@@ -188,6 +189,7 @@ export default function MapView({
               href={`https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lon}`}
               target="_blank"
               rel="noreferrer"
+              onClick={onExternalLink}
             >
               Open in Google Maps
             </a>

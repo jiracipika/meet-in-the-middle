@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Native app shells and their exported web bundle (mobile/).
+    "mobile/**",
   ]),
 ]);
 

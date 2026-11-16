@@ -1,0 +1,25 @@
+{
+  "name": "meet-in-the-middle-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor shell for the Meet in the Middle apps (iOS/Android). The web UI is exported from the parent Next.js app into www/.",
+  "scripts": {
+    "build:web": "node scripts/export-web.mjs",
+    "sync": "npm run build:web && cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/clipboard": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/geolocation": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/share": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.0",
+    "@capacitor/cli": "^8.0.0"
+  }
+}

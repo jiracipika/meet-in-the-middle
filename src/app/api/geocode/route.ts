@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { corsJson, corsPreflight } from "@/lib/cors";
 
 /**
  * Geocoding proxy around Photon (OSM-based, keyless, autocomplete-friendly).
@@ -62,9 +62,9 @@ export async function GET(request: Request) {
   if (q.length > 240 || ((lat !== null || lon !== null) && (
     !lat?.trim() || !lon?.trim() || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon)) ||
     Math.abs(Number(lat)) > 90 || Math.abs(Number(lon)) > 180
-  ))) return NextResponse.json({ error: "bad_params" }, { status: 400 });
+  ))) return corsJson(request, { error: "bad_params" }, { status: 400 });
   if (q.length < 3) {
-    return NextResponse.json({ results: [] });
+    return corsJson(request, { results: [] });
   }
 
   const biasKey =
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
   const key = `${q.toLowerCase()}|${biasKey}`;
   const cached = cacheGet(key);
   if (cached !== undefined) {
-    return NextResponse.json(cached);
+    return corsJson(request, cached);
   }
 
   const photon = new URL("https://photon.komoot.io/api/");
@@ -90,7 +90,7 @@ export async function GET(request: Request) {
       cache: "no-store",
     });
     if (!res.ok) {
-      return NextResponse.json({ error: "geocode_upstream" }, { status: 502 });
+      return corsJson(request, { error: "geocode_upstream" }, { status: 502 });
     }
     const json: unknown = await res.json();
     const features = (json as { features?: unknown[] }).features ?? [];
@@ -117,8 +117,12 @@ export async function GET(request: Request) {
 
     const body = { results };
     cacheSet(key, body);
-    return NextResponse.json(body);
+    return corsJson(request, body);
   } catch {
-    return NextResponse.json({ error: "geocode_failed" }, { status: 502 });
+    return corsJson(request, { error: "geocode_failed" }, { status: 502 });
   }
+}
+
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
 }

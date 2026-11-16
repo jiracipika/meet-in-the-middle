@@ -53,3 +53,17 @@ test('geocode route collapses duplicate upstream labels', async () => {
     assert.deepEqual(body.results.map(r=>r.label),['Potsdamer Platz, Berlin, Deutschland','Alexanderplatz, Berlin, Deutschland']);
   } finally { globalThis.fetch = previousFetch; }
 });
+test('API routes allow only the packaged app origins for CORS', async () => {
+  const geocode = await import('../src/app/api/geocode/route');
+  const venues = await import('../src/app/api/venues/route');
+  const app = new Request('http://localhost/api/geocode?q=ab', {headers:{origin:'capacitor://localhost'}});
+  const evil = new Request('http://localhost/api/geocode?q=ab', {headers:{origin:'https://evil.example'}});
+  assert.equal((await geocode.GET(app)).headers.get('Access-Control-Allow-Origin'),'capacitor://localhost');
+  assert.equal((await geocode.GET(evil)).headers.get('Access-Control-Allow-Origin'),null);
+  const pre = await geocode.OPTIONS(app);
+  assert.equal(pre.status,204);
+  assert.equal(pre.headers.get('Access-Control-Allow-Origin'),'capacitor://localhost');
+  const bad = await venues.GET(new Request('http://localhost/api/venues?lat=&lon=', {headers:{origin:'https://localhost'}}));
+  assert.equal(bad.status,400);
+  assert.equal(bad.headers.get('Access-Control-Allow-Origin'),'https://localhost');
+});
