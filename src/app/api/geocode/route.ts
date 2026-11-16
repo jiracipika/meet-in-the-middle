@@ -111,6 +111,8 @@ export async function GET(request: Request) {
         };
       })
       .filter((r): r is { label: string; lat: number; lon: number } => r !== null)
+      // Photon can return the same place twice (e.g. an OSM node and its way) with identical labels; keep the first.
+      .filter((r, i, all) => all.findIndex(o => o.label === r.label) === i)
       .slice(0, 6);
 
     const body = { results };

@@ -37,3 +37,19 @@ test('coordinate parsing validates ranges and supports signed values', () => {
   assert.equal(parseCoords('Toronto'), null);
   assert.equal(parseCoords('+43.65; -79.38')?.lon,-79.38);
 });
+test('geocode route collapses duplicate upstream labels', async () => {
+  const previousFetch = globalThis.fetch;
+  const photon = {features:[
+    {properties:{name:'Potsdamer Platz', city:'Berlin', country:'Deutschland'}, geometry:{coordinates:[13.376,52.509]}},
+    {properties:{name:'Potsdamer Platz', city:'Berlin', country:'Deutschland'}, geometry:{coordinates:[13.377,52.51]}},
+    {properties:{name:'Alexanderplatz', city:'Berlin', country:'Deutschland'}, geometry:{coordinates:[13.413,52.522]}},
+  ]};
+  globalThis.fetch = (async () => new Response(JSON.stringify(photon),{status:200,headers:{'Content-Type':'application/json'}})) as typeof fetch;
+  try {
+    const {GET} = await import('../src/app/api/geocode/route');
+    const res = await GET(new Request('http://localhost/api/geocode?q=potsdamer%20platz'));
+    assert.equal(res.status,200);
+    const body = await res.json() as {results:{label:string}[]};
+    assert.deepEqual(body.results.map(r=>r.label),['Potsdamer Platz, Berlin, Deutschland','Alexanderplatz, Berlin, Deutschland']);
+  } finally { globalThis.fetch = previousFetch; }
+});
