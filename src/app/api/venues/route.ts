@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { corsJson, corsPreflight } from "@/lib/cors";
 
 /**
  * Venue lookup around a point. Primary source: Overpass (OpenStreetMap) with
@@ -224,13 +224,13 @@ export async function GET(request: Request) {
     Math.abs(lat) > 90 ||
     Math.abs(lon) > 180
   ) {
-    return NextResponse.json({ error: "bad_params" }, { status: 400 });
+    return corsJson(request, { error: "bad_params" }, { status: 400 });
   }
 
   const key = `${lat.toFixed(5)},${lon.toFixed(5)},${radius}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < TTL_MS) {
-    return NextResponse.json(hit.body);
+    return corsJson(request, hit.body);
   }
 
   const attempts: Array<{ mirror: string; outcome: string }> = [];
@@ -242,7 +242,8 @@ export async function GET(request: Request) {
   }
 
   if (venues === null) {
-    return NextResponse.json(
+    return corsJson(
+      request,
       { error: "venue_sources_unavailable", attempts },
       { status: 502 },
     );
@@ -251,5 +252,9 @@ export async function GET(request: Request) {
   venues.sort((a, b) => a.distanceKm - b.distanceKm);
   const body = { venues: venues.slice(0, 24), source };
   cachePut(key, body);
-  return NextResponse.json(body);
+  return corsJson(request, body);
+}
+
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
 }

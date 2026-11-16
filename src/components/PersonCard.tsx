@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { CrosshairIcon, XIcon } from "./icons";
+import { apiUrl } from "@/lib/api";
+import { locate } from "@/lib/native";
 import type { Person, Place } from "@/lib/types";
 
 export function parseCoords(q: string): Place | null {
@@ -42,7 +44,7 @@ export default function PersonCard({ person, index, canRemove, bias, weightsEnab
       setError("");
       try {
         const biasQ = biasLat !== undefined && biasLon !== undefined ? `&lat=${biasLat.toFixed(3)}&lon=${biasLon.toFixed(3)}` : "";
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}${biasQ}`, {
+        const res = await fetch(apiUrl(`/api/geocode?q=${encodeURIComponent(q)}${biasQ}`), {
           signal: AbortSignal.any([ac.signal, AbortSignal.timeout(12000)]),
         });
         if (!res.ok) throw new Error("search_failed");
@@ -75,20 +77,25 @@ export default function PersonCard({ person, index, canRemove, bias, weightsEnab
     setLocating(false); setQuery(value); setItems([]); setActive(0); setError(""); setSearched(false); setLoading(false); setOpen(true);
     if (person.place) onChange({ place: null });
   }
-  function findMe() {
+  async function findMe() {
     abortRef.current?.abort();
     setOpen(false); setLoading(false); setError("");
-    if (!navigator.geolocation) { setError("Location is not supported here. Enter an address instead."); return; }
     const version = ++locationVersion.current;
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
+    try {
+      const coords = await locate();
       if (version !== locationVersion.current) return;
       applyPlace({ lat: coords.latitude, lon: coords.longitude, label: `Current location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})` });
-    }, (err) => {
+    } catch (err) {
       if (version !== locationVersion.current) return;
       setLocating(false);
-      setError(err.code === 1 ? "Location permission is off. Allow it in your browser, or enter an address." : err.code === 3 ? "Location took too long. Try again or enter an address." : "We couldn’t locate you. Try again or enter an address.");
-    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+      const code = (err as { code?: number }).code;
+      setError(
+        err instanceof Error && err.message === "unsupported" ? "Location is not supported here. Enter an address instead."
+          : code === 1 ? "Location permission is off. Allow it in your browser, or enter an address."
+          : code === 3 ? "Location took too long. Try again or enter an address."
+          : "We couldn’t locate you. Try again or enter an address.");
+    }
   }
 
   return <article className="person-card" onMouseEnter={() => onHover(person.id)} onMouseLeave={() => onHover(null)}>

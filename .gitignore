@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/mobile/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -45,3 +46,17 @@ next-env.d.ts
 
 /test-results/
 /playwright-report/
+
+# mobile app build state
+/mobile/www/
+/mobile/ios/App/build/
+/mobile/ios/App/Pods/
+/mobile/ios/DerivedData/
+/mobile/android/.gradle/
+/mobile/android/app/build/
+/mobile/android/build/
+/mobile/android/local.properties/
+/mobile/android/capacitor-cordova-android-plugins/
+/mobile/.mobile-api-backup/
+.mobile-api-backup/
+
