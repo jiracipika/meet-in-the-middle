@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import {
+  CircleMarker,
   MapContainer,
   Marker,
   Polyline,
@@ -15,6 +16,7 @@ import {
 } from "react-leaflet";
 import { GOLD } from "@/lib/palette";
 import { onExternalLink } from "@/lib/native";
+import type { Venue } from "@/lib/types";
 
 export type MapPerson = {
   id: string;
@@ -32,6 +34,7 @@ export type SpotDisplay = {
   sub: string;
 };
 
+/** "Find a spot" results, rendered as clickable dots beneath the person/spot markers */
 export type MapViewProps = {
   people: MapPerson[];
   spot: SpotDisplay | null;
@@ -39,6 +42,9 @@ export type MapViewProps = {
   maxDistKm: number;
   fitVersion: number;
   onSpotDrag: (lat: number, lon: number) => void;
+  venues?: Venue[];
+  activeVenueId?: string | null;
+  onPickVenue?: (v: Venue) => void;
 };
 
 function personIcon(color: string, initial: string, active: boolean) {
@@ -97,6 +103,9 @@ export default function MapView({
   highlightedId,
   fitVersion,
   onSpotDrag,
+  venues,
+  activeVenueId,
+  onPickVenue,
  }: MapViewProps) {
   const anchor = spot?.lon ?? people[0]?.lon ?? 0;
   const longitude = (lon: number) => anchor + ((lon - anchor + 540) % 360) - 180;
@@ -160,6 +169,17 @@ export default function MapView({
           </Tooltip>
         </Marker>
       ))}
+
+      {venues?.map(v => {
+        const active = v.id === activeVenueId;
+        return (
+          <CircleMarker key={v.id} center={[v.lat, longitude(v.lon)]} radius={active ? 7 : 5} className="venue-dot"
+            pathOptions={{ color: GOLD, weight: active ? 3 : 1.5, fillColor: active ? GOLD : "#7aa98c", fillOpacity: 0.65 }}
+            eventHandlers={onPickVenue ? { click: () => onPickVenue(v) } : undefined}>
+            <Tooltip direction="top" offset={[0, -6]}>{v.name}</Tooltip>
+          </CircleMarker>
+        );
+      })}
 
       {spot && (
         <Marker

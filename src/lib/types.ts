@@ -18,9 +18,14 @@ export type Venue = {
   name: string;
   lat: number;
   lon: number;
+  /** primary OSM tag value (amenity, leisure or tourism) */
   amenity: string;
   cuisine?: string;
   distanceKm: number;
+  /** browse category the result belongs to (absent on Photon fallback results) */
+  category?: import("./venueCats").VenueCat;
+  /** evaluated from OSM opening_hours; absent when unknown or unparseable */
+  openNow?: boolean;
 };
 
 /**
@@ -32,6 +37,8 @@ export type MeetingOverride = {
   lat: number;
   lon: number;
   amenity?: string;
+  /** OSM id of the picked venue, to highlight it in results and on the map */
+  venueId?: string;
   /** the calculated meeting point at the moment the override was pinned */
   pinnedAt: LatLng;
   /** restored from a share link: never auto-dropped */
