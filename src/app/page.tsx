@@ -8,6 +8,7 @@ import PersonCard from "@/components/PersonCard";
 import ModeToggle from "@/components/ModeToggle";
 import StatsPanel, { type PersonTrip, type Stats } from "@/components/StatsPanel";
 import VenueBar, { type VenueState } from "@/components/VenueBar";
+import { DEFAULT_VENUE_CAT, type VenueCat } from "@/lib/venueCats";
 import { CrosshairIcon, PlusIcon, ShareIcon, SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import {
   computeMeeting,
@@ -62,9 +63,13 @@ export default function Home() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [venueSearch, setVenueSearch] = useState<{
     origin: LatLng;
+    cat: VenueCat;
+    q: string;
     venues: Venue[];
     state: VenueState;
   } | null>(null);
+  const [venueCat, setVenueCat] = useState<VenueCat>(DEFAULT_VENUE_CAT);
+  const [venueQuery, setVenueQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"plan" | "map" | "results">("plan");
   const [shareUrl, setShareUrl] = useState("");
@@ -175,6 +180,12 @@ export default function Home() {
     }
     return venueSearch;
   }, [venueSearch, spot]);
+
+  /** The picked venue's row/dot: by id when pinned from results, by name when restored from a share link. */
+  const activeVenueId = useMemo(() => {
+    if (!activeOverride) return null;
+    return activeOverride.venueId ?? venueInfo.venues.find(v => v.name === activeOverride.label)?.id ?? null;
+  }, [activeOverride, venueInfo]);
 
   const spotDisplay = useMemo(() => {
     if (!spot) return null;
@@ -298,24 +309,36 @@ export default function Home() {
     setView("map");
   }, []);
 
-  const findVenues = useCallback(async () => {
+  const findVenues = useCallback(async (cat: VenueCat = venueCat, q: string = venueQuery) => {
     if (!spot) return;
     venueRequest.current?.abort();
     const controller = new AbortController();
     venueRequest.current = controller;
     const origin = { ...spot };
-    setVenueSearch({ origin, venues: [], state: "loading" });
+    const params = new URLSearchParams({ lat: origin.lat.toFixed(5), lon: origin.lon.toFixed(5), cat });
+    if (q.trim().length >= 2) params.set("q", q.trim());
+    setVenueSearch({ origin, cat, q: q.trim(), venues: [], state: "loading" });
     try {
-      const res = await fetch(apiUrl(`/api/venues?lat=${origin.lat.toFixed(5)}&lon=${origin.lon.toFixed(5)}`), {
+      const res = await fetch(apiUrl(`/api/venues?${params}`), {
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(55000)]),
       });
       if (!res.ok) throw new Error("venues_failed");
       const json: { venues?: Venue[] } = await res.json();
-      if (!controller.signal.aborted) setVenueSearch({ origin, venues: json.venues ?? [], state: "done" });
+      if (!controller.signal.aborted) setVenueSearch({ origin, cat, q: q.trim(), venues: json.venues ?? [], state: "done" });
     } catch {
-      if (!controller.signal.aborted) setVenueSearch({ origin, venues: [], state: "error" });
+      if (!controller.signal.aborted) setVenueSearch({ origin, cat, q: q.trim(), venues: [], state: "error" });
     }
-  }, [spot]);
+  }, [spot, venueCat, venueQuery]);
+
+  // Typing or switching categories while the panel is open: refetch (debounced).
+  const findVenuesRef = useRef(findVenues);
+  useEffect(() => { findVenuesRef.current = findVenues; }, [findVenues]);
+  useEffect(() => {
+    if (!venueSearch || venueSearch.state === "idle") return;
+    if (venueSearch.cat === venueCat && venueSearch.q === venueQuery.trim()) return;
+    const t = setTimeout(() => findVenuesRef.current(venueCat, venueQuery), 400);
+    return () => clearTimeout(t);
+  }, [venueSearch, venueCat, venueQuery]);
 
   useEffect(() => () => venueRequest.current?.abort(), []);
 
@@ -326,6 +349,7 @@ export default function Home() {
         lat: v.lat,
         lon: v.lon,
         amenity: v.amenity,
+        venueId: v.id,
         pinnedAt: meeting ?? { lat: v.lat, lon: v.lon },
       });
       setView("map");
@@ -431,7 +455,8 @@ export default function Home() {
 
         <section className="map-panel" aria-label="Meeting map">
           <Map people={mapPeople} spot={spotDisplay} highlightedId={hoveredId} maxDistKm={maxDistKm}
-            onSpotDrag={onSpotDrag} fitVersion={fitVersion} />
+            onSpotDrag={onSpotDrag} fitVersion={fitVersion}
+            venues={venueInfo.venues} activeVenueId={activeVenueId} onPickVenue={pickVenue} />
           <div className="map-topbar"><span className="map-badge"><i /> {needMore ? "A world of possibilities" : `${MODE_LABELS[mode]} meeting point`}</span>
             <button className="button map-fit" onClick={() => setFitVersion(v => v + 1)} disabled={!located}><CrosshairIcon /> Fit everyone</button>
           </div>
@@ -444,8 +469,10 @@ export default function Home() {
             <small>Up to 6 people · Anywhere in the world</small>
           </div>}
           {!needMore && <div className="map-venue"><VenueBar state={venueInfo.state} venues={venueInfo.venues}
-            activeId={venueInfo.venues.find(v => v.name === activeOverride?.label)?.id ?? null}
-            disabled={needMore} onFind={findVenues} onPick={pickVenue}
+            activeId={activeVenueId} disabled={needMore} cat={venueCat} query={venueQuery}
+            onCatPick={c => { setVenueCat(c); findVenuesRef.current(c, venueQuery); }}
+            onQueryChange={setVenueQuery}
+            onFind={() => findVenues()} onPick={pickVenue}
             onClose={() => { venueRequest.current?.abort(); setVenueSearch(null); }} /></div>}
           <div className="map-caption">{needMore ? "A shared destination starts with you." : "Make it yours — drag the green meeting pin to fine-tune."}</div>
         </section>
